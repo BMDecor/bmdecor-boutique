@@ -1,189 +1,303 @@
-import { getColors, type ColorProduct, type Brand } from './actions/getColors';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import Link from 'next/link';
+import { getColors } from './actions/getColors';
 
-// Brand display configuration
-const BRAND_CONFIG: Record<Brand, { name: string; tagline: string; variant: 'default' | 'secondary' | 'outline' }> = {
-  BM: { name: 'Benjamin Moore', tagline: 'Professional-Grade Technology', variant: 'default' },
-  FB: { name: 'Farrow & Ball', tagline: 'Artisan Heritage', variant: 'secondary' },
-  LG: { name: 'Little Greene', tagline: 'Eco-Conscious British Heritage', variant: 'outline' },
-};
+// Brand House Configuration
+const BRAND_HOUSES = [
+  {
+    id: 'BM',
+    slug: 'benjamin-moore',
+    name: 'Benjamin Moore',
+    tagline: 'Professional-Grade Technology',
+    description: 'Over 140 years of innovation. Premium paints trusted by professionals worldwide.',
+    heroColor: '#2C2C2C',
+    accentColor: '#C9A86C',
+    textColor: '#FFFFFF',
+  },
+  {
+    id: 'LG',
+    slug: 'little-greene',
+    name: 'Little Greene',
+    tagline: 'Eco-Conscious British Heritage',
+    description: 'Historically-inspired colours crafted with environmental responsibility.',
+    heroColor: '#4A5240',
+    accentColor: '#E8E4D9',
+    textColor: '#FFFFFF',
+  },
+  {
+    id: 'FB',
+    slug: 'farrow-and-ball',
+    name: 'Farrow & Ball',
+    tagline: 'Artisan Heritage',
+    description: 'Handcrafted paints with extraordinary depth of colour since 1946.',
+    heroColor: '#8B7355',
+    accentColor: '#F5F1EB',
+    textColor: '#FFFFFF',
+  },
+];
 
-// Color Card Component
-function ColorCard({ color }: { color: ColorProduct }) {
-  const brandInfo = BRAND_CONFIG[color.brand];
-
-  // Calculate if text should be light or dark based on hex luminance
-  const hexToLuminance = (hex: string): number => {
-    const rgb = hex.replace('#', '').match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [0, 0, 0];
-    const [r, g, b] = rgb.map((c) => {
-      c = c / 255;
-      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  };
-
-  const isLightColor = hexToLuminance(color.hexCode) > 0.5;
-  const textColor = isLightColor ? '#2C2C2C' : '#FFFFFF';
+// Hero Brand Card Component
+function BrandHeroCard({
+  brand,
+  colorCount,
+}: {
+  brand: (typeof BRAND_HOUSES)[0];
+  colorCount: number;
+}) {
+  const isComingSoon = colorCount === 0;
 
   return (
-    <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-      {/* Color Swatch */}
+    <Link
+      href={isComingSoon ? '#' : `/${brand.slug}`}
+      className={`group relative block overflow-hidden rounded-2xl transition-all duration-500 ${
+        isComingSoon ? 'cursor-not-allowed opacity-70' : 'hover:scale-[1.02] hover:shadow-2xl'
+      }`}
+    >
+      {/* Background */}
       <div
-        className="aspect-square w-full relative"
-        style={{ backgroundColor: color.hexCode }}
+        className="aspect-[4/5] md:aspect-[3/4] lg:aspect-[4/5] w-full"
+        style={{ backgroundColor: brand.heroColor }}
       >
-        {/* Color Code Overlay */}
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+        {/* Accent Line */}
         <div
-          className="absolute bottom-3 left-3 font-mono text-sm font-medium opacity-80"
-          style={{ color: textColor }}
-        >
-          {color.colorCode}
-        </div>
-        {/* Hex Code Overlay */}
-        <div
-          className="absolute bottom-3 right-3 font-mono text-xs opacity-60"
-          style={{ color: textColor }}
-        >
-          {color.hexCode}
+          className="absolute top-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-2"
+          style={{ backgroundColor: brand.accentColor }}
+        />
+
+        {/* Content */}
+        <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8">
+          {/* Color Count Badge */}
+          <div className="mb-4">
+            {isComingSoon ? (
+              <span
+                className="inline-block px-3 py-1 text-xs font-medium rounded-full"
+                style={{ backgroundColor: brand.accentColor, color: brand.heroColor }}
+              >
+                Coming Soon
+              </span>
+            ) : (
+              <span
+                className="inline-block px-3 py-1 text-xs font-medium rounded-full"
+                style={{ backgroundColor: brand.accentColor, color: brand.heroColor }}
+              >
+                {colorCount} Colors
+              </span>
+            )}
+          </div>
+
+          {/* Brand Name */}
+          <h2
+            className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight mb-2"
+            style={{ color: brand.textColor }}
+          >
+            {brand.name}
+          </h2>
+
+          {/* Tagline */}
+          <p
+            className="text-sm md:text-base font-medium mb-3 opacity-90"
+            style={{ color: brand.accentColor }}
+          >
+            {brand.tagline}
+          </p>
+
+          {/* Description */}
+          <p
+            className="text-sm opacity-80 line-clamp-2 mb-4"
+            style={{ color: brand.textColor }}
+          >
+            {brand.description}
+          </p>
+
+          {/* CTA */}
+          {!isComingSoon && (
+            <div
+              className="flex items-center gap-2 text-sm font-medium transition-all duration-300 group-hover:gap-3"
+              style={{ color: brand.accentColor }}
+            >
+              <span>Explore Collection</span>
+              <svg
+                className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 8l4 4m0 0l-4 4m4-4H3"
+                />
+              </svg>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Card Content */}
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-medium text-foreground leading-tight line-clamp-2">
-            {color.name}
-          </h3>
-          <Badge variant={brandInfo.variant} className="shrink-0 text-xs">
-            {color.brand}
-          </Badge>
-        </div>
-
-        {color.collection && (
-          <p className="text-xs text-muted-foreground">
-            {color.collection}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-sm font-semibold text-[#C9A86C]">
-            €{color.priceEur.toFixed(2)}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {color.volume}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+    </Link>
   );
 }
 
-// Main Page Component
+// Main Lobby Page
 export default async function Home() {
   const colors = await getColors();
 
   // Count by brand
-  const bmCount = colors.filter((c) => c.brand === 'BM').length;
-  const lgCount = colors.filter((c) => c.brand === 'LG').length;
-  const fbCount = colors.filter((c) => c.brand === 'FB').length;
+  const brandCounts: Record<string, number> = {
+    BM: colors.filter((c) => c.brand === 'BM').length,
+    LG: colors.filter((c) => c.brand === 'LG').length,
+    FB: colors.filter((c) => c.brand === 'FB').length,
+  };
+
+  const totalColors = colors.length;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground">
                 BM Decoración
               </h1>
-              <p className="text-sm text-muted-foreground">
-                Premium Paint Boutique · Calle Dublín 21, Marbella
+              <p className="text-muted-foreground mt-1">
+                Premium Paint Boutique · Marbella
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="outline" className="border-[#C9A86C] text-[#C9A86C]">
-                {colors.length} Colors
-              </Badge>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-2xl font-semibold text-[#C9A86C]">{totalColors}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Curated Colors
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Brand Filter Bar */}
-      <div className="border-b border-border bg-secondary/50">
-        <div className="container mx-auto px-6 py-3">
-          <div className="flex items-center gap-6">
-            <span className="text-sm font-medium text-foreground">Collections:</span>
-            <div className="flex items-center gap-3">
-              <Badge variant="default" className="cursor-pointer hover:opacity-80">
-                Benjamin Moore ({bmCount})
-              </Badge>
-              <Badge variant="outline" className="cursor-pointer hover:opacity-80">
-                Little Greene ({lgCount})
-              </Badge>
-              {fbCount > 0 && (
-                <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
-                  Farrow & Ball ({fbCount})
-                </Badge>
-              )}
-            </div>
+      {/* Hero Section */}
+      <section className="bg-secondary/30 py-12 md:py-16">
+        <div className="container mx-auto px-6">
+          <div className="max-w-3xl mb-10">
+            <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-4">
+              Three World-Class Brand Houses
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Welcome to the Grand Lobby. Choose your brand house to explore curated collections
+              of premium paints, each with their own heritage and character.
+            </p>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        {/* Section Title */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-semibold text-foreground mb-2">
-            The Showroom
-          </h2>
-          <p className="text-muted-foreground max-w-2xl">
-            Discover our curated collection of premium paints from three world-class brands.
-            Each color is carefully selected to bring timeless elegance to your space.
-          </p>
-        </div>
-
-        {/* Color Grid */}
-        <ScrollArea className="w-full">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {colors.map((color) => (
-              <ColorCard key={color.id} color={color} />
+          {/* Brand House Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {BRAND_HOUSES.map((brand) => (
+              <BrandHeroCard
+                key={brand.id}
+                brand={brand}
+                colorCount={brandCounts[brand.id] || 0}
+              />
             ))}
           </div>
-        </ScrollArea>
+        </div>
+      </section>
 
-        {/* Footer Stats */}
-        <div className="mt-12 pt-8 border-t border-border">
-          <div className="grid grid-cols-3 gap-6 text-center">
-            <div>
-              <div className="text-3xl font-semibold text-[#C9A86C]">{bmCount}</div>
-              <div className="text-sm text-muted-foreground">Benjamin Moore</div>
+      {/* Features Section */}
+      <section className="py-12 md:py-16">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#C9A86C]/10 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-[#C9A86C]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Paint Calculator</h3>
+              <p className="text-sm text-muted-foreground">
+                Calculate exactly how much paint you need for your project.
+              </p>
             </div>
-            <div>
-              <div className="text-3xl font-semibold text-[#C9A86C]">{lgCount}</div>
-              <div className="text-sm text-muted-foreground">Little Greene</div>
+
+            {/* Feature 2 */}
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#C9A86C]/10 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-[#C9A86C]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Click & Collect</h3>
+              <p className="text-sm text-muted-foreground">
+                Pick up your order at Calle Dublín 21, Marbella.
+              </p>
             </div>
-            <div>
-              <div className="text-3xl font-semibold text-[#C9A86C]">{colors.length}</div>
-              <div className="text-sm text-muted-foreground">Total Colors</div>
+
+            {/* Feature 3 */}
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#C9A86C]/10 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-[#C9A86C]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">IVA Incluido</h3>
+              <p className="text-sm text-muted-foreground">
+                All prices include 21% Spanish VAT. No surprises at checkout.
+              </p>
             </div>
           </div>
         </div>
-      </main>
+      </section>
 
       {/* Footer */}
       <footer className="border-t border-border bg-card mt-auto">
-        <div className="container mx-auto px-6 py-6">
+        <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-muted-foreground">
-              © 2026 BM Decoración · bmdecor.es
+            <div>
+              <div className="font-semibold text-foreground">BM Decoración</div>
+              <div className="text-sm text-muted-foreground">
+                Calle Dublín 21, Marbella, Spain
+              </div>
             </div>
             <div className="text-sm text-muted-foreground">
-              Calle Dublín 21, Marbella, Spain · IVA Incluido (21%)
+              © 2026 bmdecor.es · Premium Paint Boutique
             </div>
           </div>
         </div>
