@@ -1,65 +1,193 @@
-import Image from "next/image";
+import { getColors, type ColorProduct, type Brand } from './actions/getColors';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-export default function Home() {
+// Brand display configuration
+const BRAND_CONFIG: Record<Brand, { name: string; tagline: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  BM: { name: 'Benjamin Moore', tagline: 'Professional-Grade Technology', variant: 'default' },
+  FB: { name: 'Farrow & Ball', tagline: 'Artisan Heritage', variant: 'secondary' },
+  LG: { name: 'Little Greene', tagline: 'Eco-Conscious British Heritage', variant: 'outline' },
+};
+
+// Color Card Component
+function ColorCard({ color }: { color: ColorProduct }) {
+  const brandInfo = BRAND_CONFIG[color.brand];
+
+  // Calculate if text should be light or dark based on hex luminance
+  const hexToLuminance = (hex: string): number => {
+    const rgb = hex.replace('#', '').match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [0, 0, 0];
+    const [r, g, b] = rgb.map((c) => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
+  const isLightColor = hexToLuminance(color.hexCode) > 0.5;
+  const textColor = isLightColor ? '#2C2C2C' : '#FFFFFF';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+      {/* Color Swatch */}
+      <div
+        className="aspect-square w-full relative"
+        style={{ backgroundColor: color.hexCode }}
+      >
+        {/* Color Code Overlay */}
+        <div
+          className="absolute bottom-3 left-3 font-mono text-sm font-medium opacity-80"
+          style={{ color: textColor }}
+        >
+          {color.colorCode}
+        </div>
+        {/* Hex Code Overlay */}
+        <div
+          className="absolute bottom-3 right-3 font-mono text-xs opacity-60"
+          style={{ color: textColor }}
+        >
+          {color.hexCode}
+        </div>
+      </div>
+
+      {/* Card Content */}
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-medium text-foreground leading-tight line-clamp-2">
+            {color.name}
+          </h3>
+          <Badge variant={brandInfo.variant} className="shrink-0 text-xs">
+            {color.brand}
+          </Badge>
+        </div>
+
+        {color.collection && (
+          <p className="text-xs text-muted-foreground">
+            {color.collection}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-sm font-semibold text-[#C9A86C]">
+            €{color.priceEur.toFixed(2)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {color.volume}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Main Page Component
+export default async function Home() {
+  const colors = await getColors();
+
+  // Count by brand
+  const bmCount = colors.filter((c) => c.brand === 'BM').length;
+  const lgCount = colors.filter((c) => c.brand === 'LG').length;
+  const fbCount = colors.filter((c) => c.brand === 'FB').length;
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                BM Decoración
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Premium Paint Boutique · Calle Dublín 21, Marbella
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className="border-[#C9A86C] text-[#C9A86C]">
+                {colors.length} Colors
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Brand Filter Bar */}
+      <div className="border-b border-border bg-secondary/50">
+        <div className="container mx-auto px-6 py-3">
+          <div className="flex items-center gap-6">
+            <span className="text-sm font-medium text-foreground">Collections:</span>
+            <div className="flex items-center gap-3">
+              <Badge variant="default" className="cursor-pointer hover:opacity-80">
+                Benjamin Moore ({bmCount})
+              </Badge>
+              <Badge variant="outline" className="cursor-pointer hover:opacity-80">
+                Little Greene ({lgCount})
+              </Badge>
+              {fbCount > 0 && (
+                <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
+                  Farrow & Ball ({fbCount})
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
+        {/* Section Title */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-semibold text-foreground mb-2">
+            The Showroom
+          </h2>
+          <p className="text-muted-foreground max-w-2xl">
+            Discover our curated collection of premium paints from three world-class brands.
+            Each color is carefully selected to bring timeless elegance to your space.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Color Grid */}
+        <ScrollArea className="w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {colors.map((color) => (
+              <ColorCard key={color.id} color={color} />
+            ))}
+          </div>
+        </ScrollArea>
+
+        {/* Footer Stats */}
+        <div className="mt-12 pt-8 border-t border-border">
+          <div className="grid grid-cols-3 gap-6 text-center">
+            <div>
+              <div className="text-3xl font-semibold text-[#C9A86C]">{bmCount}</div>
+              <div className="text-sm text-muted-foreground">Benjamin Moore</div>
+            </div>
+            <div>
+              <div className="text-3xl font-semibold text-[#C9A86C]">{lgCount}</div>
+              <div className="text-sm text-muted-foreground">Little Greene</div>
+            </div>
+            <div>
+              <div className="text-3xl font-semibold text-[#C9A86C]">{colors.length}</div>
+              <div className="text-sm text-muted-foreground">Total Colors</div>
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-card mt-auto">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              © 2026 BM Decoración · bmdecor.es
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Calle Dublín 21, Marbella, Spain · IVA Incluido (21%)
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
