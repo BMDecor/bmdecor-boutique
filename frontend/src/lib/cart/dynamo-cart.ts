@@ -133,7 +133,8 @@ export async function addItem(cartId: string, req: AddToCartRequest): Promise<Ca
       new UpdateCommand({
         TableName: TABLE_NAME,
         Key: { PK: pk, SK: sk },
-        UpdateExpression: 'SET quantity = :qty, lineTotalEur = :total, ttl = :ttl',
+        UpdateExpression: 'SET quantity = :qty, lineTotalEur = :total, #ttl = :ttl',
+        ExpressionAttributeNames: { '#ttl': 'ttl' },
         ExpressionAttributeValues: {
           ':qty': newQty,
           ':total': Math.round(unitPrice * newQty * 100) / 100,
@@ -203,7 +204,8 @@ export async function updateItemQuantity(
     new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { PK: pk, SK: sk },
-      UpdateExpression: 'SET quantity = :qty, lineTotalEur = :total, ttl = :ttl',
+      UpdateExpression: 'SET quantity = :qty, lineTotalEur = :total, #ttl = :ttl',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
       ExpressionAttributeValues: {
         ':qty': quantity,
         ':total': Math.round(unitPrice * quantity * 100) / 100,
