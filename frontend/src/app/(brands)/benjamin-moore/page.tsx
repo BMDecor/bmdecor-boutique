@@ -40,20 +40,33 @@ interface DiscoveryResponse {
   isActive: boolean;
 }
 
-// All 11 official BM collections
-const COLLECTIONS = [
-  { id: 'all', label: 'All Collections', apiName: '' },
-  { id: 'HC', label: 'Historical Colors', apiName: 'Historical Colors' },
-  { id: 'BMC', label: 'Benjamin Moore Classics', apiName: 'Benjamin Moore Classics' },
-  { id: 'CP', label: 'Color Preview', apiName: 'Color Preview' },
-  { id: 'CC', label: 'Designer Classics', apiName: 'Designer Classics' },
-  { id: 'CSP', label: 'Color Stories', apiName: 'Color Stories' },
-  { id: 'AF', label: 'Affinity', apiName: 'Affinity Colors' },
-  { id: 'CW', label: 'Williamsburg', apiName: 'Williamsburg Paint Colors' },
-  { id: 'OC', label: 'Off White', apiName: 'Off White Collection' },
-  { id: 'PM', label: 'Ready-Mix', apiName: 'Ready Mix Colors' },
-  { id: 'SC', label: 'Fenway', apiName: 'Fenway Collection' },
+// Core collection name patterns (everything else goes to Design Trends)
+const CORE_COLLECTION_PATTERNS = [
+  'Affinity', 'Benjamin Moore Classics', 'Designer Classics',
+  'Color Preview', 'Color Stories', 'Williamsburg',
+  'Historical Colors', 'Off White', 'Ready-Mix',
 ];
+
+function isCorCollection(name: string): boolean {
+  return CORE_COLLECTION_PATTERNS.some((pattern) => name.includes(pattern));
+}
+
+/** Strip HTML entities from collection names for display */
+function cleanCollectionName(name: string): string {
+  return name
+    .replace(/&reg;/g, '®')
+    .replace(/&trade;/g, '™')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+Color Collection$/i, '')
+    .replace(/\s+Colors$/i, '')
+    .replace(/\s+Paint Color Collection$/i, '')
+    .trim();
+}
+
+interface CollectionGroup {
+  label: string;
+  items: { name: string; displayName: string; count: number }[];
+}
 
 // Product lines with real BM product numbers
 const PRODUCT_LINES = [
@@ -106,6 +119,14 @@ const PRODUCT_LINES = [
     name: 'Aura Bath & Spa',
     sheens: [
       { label: 'Matte', productNumber: '532' },
+    ],
+  },
+  {
+    name: 'Woodluxe Exterior Stain',
+    sheens: [
+      { label: 'Solid', productNumber: 'ES-10' },
+      { label: 'Semi-Transparent', productNumber: 'ES-40' },
+      { label: 'Translucent', productNumber: 'ES-65' },
     ],
   },
 ];
@@ -762,8 +783,11 @@ export default function BenjaminMoorePage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [lrvRange, setLrvRange] = useState<[number, number]>([0, 100]);
   const [selectedCollection, setSelectedCollection] = useState('all');
-  const [collectionCounts, setCollectionCounts] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Dynamic collections built from DynamoDB data
+  const [collectionGroups, setCollectionGroups] = useState<CollectionGroup[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     async function fetchColors() {
@@ -773,13 +797,36 @@ export default function BenjaminMoorePage() {
           const data = await response.json();
           setColors(data);
 
-          // Count by collection
-          const counts: Record<string, number> = { all: data.length };
+          // Build dynamic collection map from actual data
+          const counts = new Map<string, number>();
           data.forEach((c: BMColor) => {
             const col = c.collection || 'Unknown';
-            counts[col] = (counts[col] || 0) + 1;
+            counts.set(col, (counts.get(col) || 0) + 1);
           });
-          setCollectionCounts(counts);
+
+          setTotalCount(data.length);
+
+          // Group into Core Collections and Design Trends
+          const core: { name: string; displayName: string; count: number }[] = [];
+          const trends: { name: string; displayName: string; count: number }[] = [];
+
+          for (const [name, count] of counts.entries()) {
+            const entry = { name, displayName: cleanCollectionName(name), count };
+            if (isCorCollection(name)) {
+              core.push(entry);
+            } else {
+              trends.push(entry);
+            }
+          }
+
+          // Sort: core by count descending, trends by name
+          core.sort((a, b) => b.count - a.count);
+          trends.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+          const groups: CollectionGroup[] = [];
+          if (core.length > 0) groups.push({ label: 'Core Collections', items: core });
+          if (trends.length > 0) groups.push({ label: 'Design Trends', items: trends });
+          setCollectionGroups(groups);
         }
       } catch (error) {
         console.error('Failed to fetch colors:', error);
@@ -788,14 +835,13 @@ export default function BenjaminMoorePage() {
     fetchColors();
   }, []);
 
-  // Filter colors
+  // Filter colors — selectedCollection is either 'all' or the raw DynamoDB collection name
   const filteredColors = colors.filter((color) => {
     const lrv = calculateLRV(color.hexCode);
     const lrvMatch = lrv >= lrvRange[0] && lrv <= lrvRange[1];
 
     const collectionMatch =
-      selectedCollection === 'all' ||
-      COLLECTIONS.find((c) => c.id === selectedCollection)?.apiName === color.collection;
+      selectedCollection === 'all' || color.collection === selectedCollection;
 
     const searchMatch =
       !searchQuery ||
@@ -809,6 +855,14 @@ export default function BenjaminMoorePage() {
     setSelectedColor(color);
     setIsDrawerOpen(true);
   };
+
+  // Find the display name for the currently selected collection
+  const selectedDisplayName =
+    selectedCollection === 'all'
+      ? 'All Benjamin Moore Colors'
+      : collectionGroups
+          .flatMap((g) => g.items)
+          .find((i) => i.name === selectedCollection)?.displayName || selectedCollection;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
@@ -903,32 +957,46 @@ export default function BenjaminMoorePage() {
               </CardContent>
             </Card>
 
-            {/* Collections (all 11) */}
+            {/* Dynamic Collections from DynamoDB */}
             <Card className="bg-[#2C2C2C] text-white border-0">
               <CardContent className="p-5">
                 <h3 className="text-sm font-semibold mb-3">Collections</h3>
                 <div className="space-y-1">
-                  {COLLECTIONS.map((col) => {
-                    const count =
-                      col.id === 'all'
-                        ? collectionCounts.all || 0
-                        : collectionCounts[col.apiName] || 0;
+                  {/* All Colors button */}
+                  <button
+                    onClick={() => setSelectedCollection('all')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center justify-between ${
+                      selectedCollection === 'all'
+                        ? 'bg-[#C9A86C] text-[#2C2C2C]'
+                        : 'hover:bg-white/10 text-white/80'
+                    }`}
+                  >
+                    <span>All Collections</span>
+                    <span className="text-xs opacity-60">{totalCount}</span>
+                  </button>
 
-                    return (
-                      <button
-                        key={col.id}
-                        onClick={() => setSelectedCollection(col.id)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                          selectedCollection === col.id
-                            ? 'bg-[#C9A86C] text-[#2C2C2C]'
-                            : 'hover:bg-white/10 text-white/80'
-                        }`}
-                      >
-                        <span>{col.label}</span>
-                        <span className="text-xs opacity-60">{count}</span>
-                      </button>
-                    );
-                  })}
+                  {/* Grouped collections */}
+                  {collectionGroups.map((group) => (
+                    <div key={group.label}>
+                      <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold mt-3 mb-1 px-3">
+                        {group.label}
+                      </div>
+                      {group.items.map((col) => (
+                        <button
+                          key={col.name}
+                          onClick={() => setSelectedCollection(col.name)}
+                          className={`w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center justify-between ${
+                            selectedCollection === col.name
+                              ? 'bg-[#C9A86C] text-[#2C2C2C]'
+                              : 'hover:bg-white/10 text-white/80'
+                          }`}
+                        >
+                          <span className="truncate mr-2">{col.displayName}</span>
+                          <span className="text-xs opacity-60 shrink-0">{col.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -938,9 +1006,7 @@ export default function BenjaminMoorePage() {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-foreground">
-                {selectedCollection === 'all'
-                  ? 'All Benjamin Moore Colors'
-                  : COLLECTIONS.find((c) => c.id === selectedCollection)?.label}
+                {selectedDisplayName}
               </h2>
               <span className="text-sm text-muted-foreground">
                 {filteredColors.length} colors · Click for BM tools

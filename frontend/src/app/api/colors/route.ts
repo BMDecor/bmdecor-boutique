@@ -25,34 +25,46 @@ export async function GET(request: NextRequest) {
   const brand = searchParams.get('brand');
 
   try {
-    let result;
+    const allItems: Record<string, unknown>[] = [];
 
     if (brand) {
-      // Query by brand using GSI
-      result = await docClient.send(
-        new QueryCommand({
-          TableName: CONFIG.TABLE_NAME,
-          IndexName: 'GSI-Brand',
-          KeyConditionExpression: 'brand = :brand',
-          ExpressionAttributeValues: {
-            ':brand': brand,
-          },
-        })
-      );
+      // Paginated query by brand using GSI
+      let lastKey: Record<string, unknown> | undefined;
+      do {
+        const result = await docClient.send(
+          new QueryCommand({
+            TableName: CONFIG.TABLE_NAME,
+            IndexName: 'GSI-Brand',
+            KeyConditionExpression: 'brand = :brand',
+            ExpressionAttributeValues: {
+              ':brand': brand,
+            },
+            ExclusiveStartKey: lastKey,
+          })
+        );
+        if (result.Items) allItems.push(...result.Items);
+        lastKey = result.LastEvaluatedKey;
+      } while (lastKey);
     } else {
-      // Scan all products
-      result = await docClient.send(
-        new ScanCommand({
-          TableName: CONFIG.TABLE_NAME,
-          FilterExpression: 'entityType = :type',
-          ExpressionAttributeValues: {
-            ':type': 'PRODUCT',
-          },
-        })
-      );
+      // Paginated scan all products
+      let lastKey: Record<string, unknown> | undefined;
+      do {
+        const result = await docClient.send(
+          new ScanCommand({
+            TableName: CONFIG.TABLE_NAME,
+            FilterExpression: 'entityType = :type',
+            ExpressionAttributeValues: {
+              ':type': 'PRODUCT',
+            },
+            ExclusiveStartKey: lastKey,
+          })
+        );
+        if (result.Items) allItems.push(...result.Items);
+        lastKey = result.LastEvaluatedKey;
+      } while (lastKey);
     }
 
-    const colors = result.Items?.map((item) => ({
+    const colors = allItems.map((item) => ({
       id: item.id,
       brand: item.brand,
       name: item.name,
@@ -64,10 +76,10 @@ export async function GET(request: NextRequest) {
       collection: item.collection,
       description: item.description,
       inStock: item.inStock,
-    })) || [];
+    }));
 
     // Sort by name
-    colors.sort((a, b) => a.name.localeCompare(b.name));
+    colors.sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
     return NextResponse.json(colors);
   } catch (error) {

@@ -285,6 +285,7 @@ const COVERAGE_RATES: Record<string, number> = {
   'Regal Select Interior': 12,
   'Regal Select Exterior': 11,
   'ben Interior': 11,
+  'Woodluxe Exterior Stain': 8,
 };
 
 // Price list (EUR, IVA incluido)
