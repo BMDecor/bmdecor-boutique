@@ -1,15 +1,15 @@
 /**
- * Benjamin Moore API Integration - ABSOLUTE SYNC
+ * Benjamin Moore API Integration - DISCOVERY-FIRST SYNC
  *
- * Every entry originates from a 200 OK response from the
- * Benjamin Moore Production API. NO SYNTHETIC DATA.
+ * Stage 1: Calls GetPalettesByCategory to discover ALL collections
+ *          from the API itself — NO hardcoded list.
+ * Stage 2: Iterates the API's own collection catalog.
+ * Stage 3: Zero-tolerance logging — full JSON response for any
+ *          collection returning 0 colors.
  *
- * API Pattern:
- *   GET /api/{API_KEY}/color/GetPaletteByCode?code={COLLECTION}&colorData=true
- *
- * Discovered Collections (11 total, 4,131 colors):
- *   BMC (1680), CP (1232), CSP (240), CC (231), HC (191),
- *   OC (152), AF (144), CW (144), ES (80), PM (32), SC (5)
+ * API Patterns:
+ *   GET /api/{KEY}/color/GetPalettesByCategory?category=collection
+ *   GET /api/{KEY}/color/GetPaletteByCode?code={CODE}&colorData=true
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -74,14 +74,44 @@ interface BMApiColor {
   stainOpacitiesAvailable: string | null;
 }
 
+/** Shape of a single palette entry from GetPalettesByCategory */
+interface BMCatalogPalette {
+  name: string;
+  category: string;
+  colors: BMApiColor[] | null;
+  colorList: string[] | null;
+  code: string;
+  description: string | null;
+  url: string | null;
+  rows: number;
+  totalColors: number;
+  eStoreProductCode: string | null;
+}
+
+/** Shape returned by GetPalettesByCategory */
+interface BMCatalogResponse {
+  data: {
+    name: string;
+    category: string;
+    palettes: BMCatalogPalette[];
+  } | null;
+  error?: string;
+  countryCode?: string;
+  brand?: string;
+}
+
 /** Shape returned by GetPaletteByCode */
 interface BMPaletteResponse {
   data: {
     name: string;
     category: string;
     colors: BMApiColor[];
+    code?: string;
+    totalColors?: number;
   } | null;
   error?: string;
+  countryCode?: string;
+  brand?: string;
 }
 
 interface BMSecrets {
@@ -92,10 +122,12 @@ interface BMSecrets {
 interface CollectionStats {
   code: string;
   name: string;
+  catalogTotalColors: number;
   apiCount: number;
   loadedCount: number;
   firstFive: string[];
   lastFive: string[];
+  error?: string;
 }
 
 // Configuration
@@ -106,20 +138,6 @@ const CONFIG = {
   SECRET_NAME: 'BmDecor/BenjaminMoore',
   DEFAULT_PRICE_EUR: 68.0,
   DEFAULT_COVERAGE_RATE: 12,
-  // ALL official BM collection codes (discovered via GetPalettesByCategory)
-  OFFICIAL_COLLECTIONS: [
-    { code: 'HC',  name: 'Historical Colors' },
-    { code: 'BMC', name: 'Benjamin Moore Classics' },
-    { code: 'CC',  name: 'Designer Classics' },
-    { code: 'CP',  name: 'Color Preview' },
-    { code: 'CSP', name: 'Color Stories' },
-    { code: 'AF',  name: 'Affinity Collection' },
-    { code: 'CW',  name: 'Williamsburg Collection' },
-    { code: 'OC',  name: 'Off White Collection' },
-    { code: 'ES',  name: 'Woodluxe Exterior Stain' },
-    { code: 'PM',  name: 'Ready-Mix Color' },
-    { code: 'SC',  name: 'Fenway Collection' },
-  ],
 };
 
 // Initialize AWS clients
@@ -152,16 +170,52 @@ async function getSecrets(): Promise<BMSecrets> {
 }
 
 /**
- * Fetch a single collection from the BM Production API.
- * URL: {ENDPOINT}/api/{KEY}/color/GetPaletteByCode?code={CODE}&colorData=true
+ * DISCOVERY CALL: Fetch the API's own catalog of collections.
+ * URL: {ENDPOINT}/api/{KEY}/color/GetPalettesByCategory?category=collection
  *
- * The API returns ALL colors in one response per collection (no pagination needed).
+ * Returns every collectionId the API knows about — no hardcoding.
+ */
+async function discoverCollections(
+  endpoint: string,
+  apiKey: string,
+  category: string = 'collection',
+): Promise<BMCatalogPalette[]> {
+  const url = `${endpoint}/api/${apiKey}/color/GetPalettesByCategory?category=${encodeURIComponent(category)}`;
+
+  console.log(`  GET ${url.replace(apiKey, '***')}`);
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+
+  console.log(`  HTTP ${response.status} ${response.statusText}`);
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`  FULL RESPONSE BODY:\n${text}`);
+    throw new Error(`Discovery endpoint returned HTTP ${response.status}`);
+  }
+
+  const body = (await response.json()) as BMCatalogResponse;
+
+  if (!body.data || !body.data.palettes) {
+    console.error(`  FULL JSON RESPONSE:\n${JSON.stringify(body, null, 2)}`);
+    throw new Error(body.error || 'Discovery returned null data');
+  }
+
+  return body.data.palettes;
+}
+
+/**
+ * Fetch a single collection with full color data.
+ * URL: {ENDPOINT}/api/{KEY}/color/GetPaletteByCode?code={CODE}&colorData=true
  */
 async function fetchCollection(
   endpoint: string,
   apiKey: string,
-  collectionCode: string
-): Promise<{ colors: BMApiColor[]; paletteName: string }> {
+  collectionCode: string,
+): Promise<{ rawResponse: BMPaletteResponse; colors: BMApiColor[]; paletteName: string }> {
   const url = `${endpoint}/api/${apiKey}/color/GetPaletteByCode?code=${encodeURIComponent(collectionCode)}&colorData=true`;
 
   const response = await fetch(url, {
@@ -169,17 +223,29 @@ async function fetchCollection(
     headers: { 'Accept': 'application/json' },
   });
 
+  // ZERO-TOLERANCE: Log full response for non-200
   if (!response.ok) {
+    const text = await response.text();
+    console.error(`    ✗ HTTP ${response.status} ${response.statusText}`);
+    console.error(`    FULL RESPONSE BODY:\n${text}`);
     throw new Error(`HTTP ${response.status} ${response.statusText}`);
   }
 
   const body = (await response.json()) as BMPaletteResponse;
 
+  // ZERO-TOLERANCE: If data is null or colors missing, dump the entire response
   if (!body.data || !body.data.colors) {
-    throw new Error(body.error || 'No data returned');
+    console.error(`    ✗ 200 OK but NO COLOR DATA`);
+    console.error(`    FULL JSON RESPONSE:\n${JSON.stringify(body, null, 2)}`);
+    return {
+      rawResponse: body,
+      colors: [],
+      paletteName: body.data?.name || collectionCode,
+    };
   }
 
   return {
+    rawResponse: body,
     colors: body.data.colors,
     paletteName: body.data.name,
   };
@@ -262,17 +328,29 @@ async function getDynamoCount(): Promise<number> {
 
 function printAuditReport(stats: CollectionStats[], dbCount: number): void {
   console.log('\n' + '═'.repeat(80));
-  console.log('HARD SYNC AUDIT REPORT');
+  console.log('DISCOVERY SYNC AUDIT REPORT');
   console.log('═'.repeat(80));
 
+  let totalCatalog = 0;
   let totalApi = 0;
   let totalLoaded = 0;
+  let zeroCollections: string[] = [];
 
   for (const s of stats) {
+    totalCatalog += s.catalogTotalColors;
     totalApi += s.apiCount;
     totalLoaded += s.loadedCount;
 
-    console.log(`\n${s.name} (${s.code}) — ${s.apiCount} from API, ${s.loadedCount} loaded`);
+    const status = s.error
+      ? `✗ ERROR`
+      : s.apiCount === 0
+      ? `⚠ ZERO COLORS`
+      : s.apiCount === s.loadedCount
+      ? `✓ SYNC OK`
+      : `⚠ DISCREPANCY`;
+
+    console.log(`\n${s.name} (${s.code})`);
+    console.log(`  Catalog claims: ${s.catalogTotalColors} | API returned: ${s.apiCount} | Loaded: ${s.loadedCount} | ${status}`);
 
     if (s.firstFive.length > 0) {
       console.log(`  First 5: ${s.firstFive.join(', ')}`);
@@ -280,23 +358,32 @@ function printAuditReport(stats: CollectionStats[], dbCount: number): void {
     if (s.lastFive.length > 0) {
       console.log(`  Last 5:  ${s.lastFive.join(', ')}`);
     }
-
-    if (s.apiCount !== s.loadedCount) {
-      console.log(`  ⚠ DISCREPANCY: API=${s.apiCount} vs Loaded=${s.loadedCount}`);
-    } else {
-      console.log(`  ✓ SYNC OK`);
+    if (s.error) {
+      console.log(`  Error: ${s.error}`);
+    }
+    if (s.apiCount === 0) {
+      zeroCollections.push(`${s.code} (${s.name})`);
     }
   }
 
   console.log('\n' + '─'.repeat(80));
   console.log('TOTALS:');
-  console.log(`  API Colors Fetched:  ${totalApi}`);
-  console.log(`  DynamoDB Loaded:     ${totalLoaded}`);
-  console.log(`  DynamoDB Verified:   ${dbCount}`);
+  console.log(`  Collections Discovered: ${stats.length}`);
+  console.log(`  Catalog Claims Total:   ${totalCatalog}`);
+  console.log(`  API Colors Fetched:     ${totalApi}`);
+  console.log(`  DynamoDB Loaded:        ${totalLoaded}`);
+  console.log(`  DynamoDB Verified:      ${dbCount}`);
+
+  if (zeroCollections.length > 0) {
+    console.log(`\n  ⚠ ZERO-COLOR COLLECTIONS (${zeroCollections.length}):`);
+    for (const z of zeroCollections) {
+      console.log(`    - ${z}`);
+    }
+  }
 
   if (totalLoaded !== dbCount) {
     console.log(`\n  ⚠ ALERT: DynamoDB count (${dbCount}) differs from loaded (${totalLoaded}).`);
-    console.log(`    This may indicate duplicate color numbers across collections.`);
+    console.log(`    Likely due to duplicate color numbers across collections.`);
     console.log(`    Unique PKs written = ${dbCount} (DynamoDB de-duplication).`);
   } else {
     console.log(`\n  ✓ Perfect sync — all counts match.`);
@@ -311,17 +398,16 @@ function printAuditReport(stats: CollectionStats[], dbCount: number): void {
 
 async function main(): Promise<void> {
   console.log('═'.repeat(80));
-  console.log('BENJAMIN MOORE ABSOLUTE SYNC — OFFICIAL API ONLY');
+  console.log('BENJAMIN MOORE DISCOVERY-FIRST SYNC');
   console.log('═'.repeat(80));
   console.log(`Profile: ${CONFIG.AWS_PROFILE} | Region: ${CONFIG.AWS_REGION}`);
   console.log(`Table: ${CONFIG.TABLE_NAME}`);
-  console.log(`Collections: ${CONFIG.OFFICIAL_COLLECTIONS.map(c => c.code).join(', ')}`);
-  console.log('NO SYNTHETIC DATA. Every color from a 200 OK API response.');
+  console.log('NO HARDCODED COLLECTIONS. Catalog sourced from API discovery.');
   console.log('═'.repeat(80));
 
   const stats: CollectionStats[] = [];
 
-  // Step 1: Credentials
+  // ── Step 1: Credentials ──
   console.log('\n[1] Retrieving API credentials from Secrets Manager...');
   const secrets = await getSecrets();
 
@@ -329,41 +415,113 @@ async function main(): Promise<void> {
     console.error('FATAL: API key is a placeholder. Cannot proceed.');
     process.exit(1);
   }
-  console.log('  ✓ Credentials retrieved');
+  console.log(`  ✓ Credentials retrieved`);
+  console.log(`  Endpoint: ${secrets.BM_API_ENDPOINT}`);
 
-  // Step 2: Fetch + Load each collection
-  console.log('\n[2] Fetching from Benjamin Moore Production API...');
+  // ── Step 2: DISCOVERY CALL ──
+  console.log('\n[2] Discovery: Calling GetPalettesByCategory for all categories...');
+
+  const CATEGORIES = ['collection', 'trend'];
+  const catalog: BMCatalogPalette[] = [];
+
+  for (const category of CATEGORIES) {
+    console.log(`\n  Category: "${category}"`);
+    try {
+      const palettes = await discoverCollections(secrets.BM_API_ENDPOINT, secrets.BM_API_KEY, category);
+      console.log(`    → ${palettes.length} palettes found`);
+      catalog.push(...palettes);
+    } catch (err) {
+      console.error(`    ✗ Failed: ${err}`);
+    }
+  }
+
+  // De-duplicate by code (SC appears in both collection and trend)
+  const seen = new Set<string>();
+  const uniqueCatalog: BMCatalogPalette[] = [];
+  for (const p of catalog) {
+    const code = p.code || '';
+    if (!seen.has(code)) {
+      seen.add(code);
+      uniqueCatalog.push(p);
+    } else {
+      console.log(`  (duplicate code "${code}" from second category — skipped)`);
+    }
+  }
+
+  console.log(`\n  ✓ API returned ${uniqueCatalog.length} unique palettes:\n`);
+  console.log('  ' + '─'.repeat(76));
+  console.log(`  ${'Code'.padEnd(8)} ${'Name'.padEnd(40)} ${'Category'.padEnd(14)} Colors`);
+  console.log('  ' + '─'.repeat(76));
+
+  for (const palette of uniqueCatalog) {
+    const code = (palette.code || '???').padEnd(8);
+    const name = (palette.name || 'unnamed').replace(/<[^>]+>/g, '').padEnd(40).slice(0, 40);
+    const cat = (palette.category || '').padEnd(14);
+    const total = palette.totalColors;
+    console.log(`  ${code} ${name} ${cat} ${total}`);
+  }
+  console.log('  ' + '─'.repeat(76));
+
+  // ── Step 3: AUTO-MAP — Iterate the API's own list ──
+  console.log('\n[3] Fetching color data for each discovered collection...');
 
   let grandTotalLoaded = 0;
   const startTime = Date.now();
 
-  for (const collection of CONFIG.OFFICIAL_COLLECTIONS) {
+  for (const palette of uniqueCatalog) {
+    const code = palette.code;
+    const displayName = (palette.name || code).replace(/<[^>]+>/g, '');
+
     const stat: CollectionStats = {
-      code: collection.code,
-      name: collection.name,
+      code: code || 'UNKNOWN',
+      name: displayName,
+      catalogTotalColors: palette.totalColors || 0,
       apiCount: 0,
       loadedCount: 0,
       firstFive: [],
       lastFive: [],
     };
 
+    if (!code) {
+      stat.error = 'No collection code in catalog entry';
+      console.error(`\n  → ${displayName} — ✗ No code, skipping`);
+      stats.push(stat);
+      continue;
+    }
+
     try {
-      console.log(`\n  → ${collection.name} (${collection.code})...`);
+      console.log(`\n  → ${displayName} (${code}) — catalog claims ${palette.totalColors} colors`);
       const { colors, paletteName } = await fetchCollection(
         secrets.BM_API_ENDPOINT,
         secrets.BM_API_KEY,
-        collection.code
+        code,
       );
 
       stat.apiCount = colors.length;
-      stat.name = paletteName.replace(/<[^>]+>/g, ''); // strip HTML entities
+      stat.name = paletteName.replace(/<[^>]+>/g, '');
+
       const validColors = colors.filter(c => c && c.number);
       stat.firstFive = validColors.slice(0, 5).map(c => c.number);
       stat.lastFive = validColors.slice(-5).map(c => c.number);
 
-      console.log(`    API returned ${colors.length} colors`);
+      // ZERO-TOLERANCE: Log if 0 colors returned on 200 OK
+      if (colors.length === 0) {
+        console.log(`    ⚠ 0 colors returned (see full JSON response logged above)`);
+        const nullCount = colors.filter(c => c === null).length;
+        if (nullCount > 0) {
+          console.log(`    (${nullCount} null entries in colors array)`);
+        }
+      } else {
+        console.log(`    API returned ${colors.length} colors`);
+      }
 
-      // Load to DynamoDB (skip null entries from API)
+      // Count valid vs null
+      const nullEntries = colors.filter(c => c === null).length;
+      if (nullEntries > 0) {
+        console.log(`    ⚠ ${nullEntries} null color entries (API returns null objects for some colors)`);
+      }
+
+      // Load to DynamoDB (skip null entries)
       for (const color of colors) {
         if (!color || !color.number || !color.hex) continue;
         const product = mapToProduct(color, stat.name);
@@ -379,6 +537,7 @@ async function main(): Promise<void> {
       console.log(`    ✓ Loaded ${stat.loadedCount} colors`);
       grandTotalLoaded += stat.loadedCount;
     } catch (error) {
+      stat.error = String(error);
       console.error(`    ✗ FAILED: ${error}`);
     }
 
@@ -388,17 +547,17 @@ async function main(): Promise<void> {
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n  Total loaded: ${grandTotalLoaded} in ${totalTime}s`);
 
-  // Step 3: Verify DynamoDB
-  console.log('\n[3] Verifying DynamoDB count...');
+  // ── Step 4: Verify DynamoDB ──
+  console.log('\n[4] Verifying DynamoDB count...');
   const dbCount = await getDynamoCount();
   console.log(`  DynamoDB BM count: ${dbCount}`);
 
-  // Step 4: Audit report
+  // ── Step 5: Audit report ──
   printAuditReport(stats, dbCount);
 
   // Final
   console.log('\n' + '═'.repeat(80));
-  console.log(`✓ ABSOLUTE SYNC COMPLETE — ${dbCount} official BM colors in DynamoDB`);
+  console.log(`✓ DISCOVERY SYNC COMPLETE — ${dbCount} official BM colors in DynamoDB`);
   console.log('═'.repeat(80));
 }
 
