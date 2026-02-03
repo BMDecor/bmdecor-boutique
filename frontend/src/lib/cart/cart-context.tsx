@@ -8,6 +8,8 @@ interface CartContextValue {
   itemCount: number;
   subtotalEur: number;
   isLoading: boolean;
+  isDrawerOpen: boolean;
+  setDrawerOpen: (open: boolean) => void;
   addItem: (req: AddToCartRequest) => Promise<void>;
   removeItem: (sk: string) => Promise<void>;
   updateQuantity: (sk: string, quantity: number) => Promise<void>;
@@ -29,6 +31,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items: [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
 
   // Fetch cart on mount
   useEffect(() => {
@@ -47,7 +50,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.cart) setCart(data.cart);
+      if (data.cart) {
+        setCart(data.cart);
+        setDrawerOpen(true);
+      }
     }
   }, []);
 
@@ -80,6 +86,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         itemCount: cart.itemCount,
         subtotalEur: cart.subtotalEur,
         isLoading,
+        isDrawerOpen,
+        setDrawerOpen,
         addItem,
         removeItem,
         updateQuantity,

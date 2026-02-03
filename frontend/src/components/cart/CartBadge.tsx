@@ -4,10 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/lib/cart/cart-context';
 
 export default function CartBadge() {
-  const { itemCount } = useCart();
+  const { itemCount, setDrawerOpen } = useCart();
 
   return (
-    <button className="relative p-2 text-white/70 hover:text-white transition-colors">
+    <button
+      onClick={() => setDrawerOpen(true)}
+      className="relative p-2 text-white/70 hover:text-white transition-colors"
+    >
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
           strokeLinecap="round"
