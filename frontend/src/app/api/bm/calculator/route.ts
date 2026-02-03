@@ -4,7 +4,7 @@ import { calculatePaintNeeds } from '@/lib/api/benjamin-moore';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { colorNumber, surfaceArea, coats, productLine, finish } = body;
+    const { colorNumber, surfaceArea, coats, productLine, productNumber } = body;
 
     if (!colorNumber || !surfaceArea) {
       return NextResponse.json(
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
       colorNumber,
       surfaceArea,
       coats || 2,
-      productLine || 'Regal Select',
-      finish || 'Matte'
+      productLine || 'Regal Select Interior',
+      productNumber,
     );
 
     return NextResponse.json(result);

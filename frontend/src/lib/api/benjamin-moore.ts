@@ -1,13 +1,107 @@
 /**
- * Benjamin Moore API Integration Service
+ * Benjamin Moore Production API Integration
  *
- * Provides access to:
- * - Visualizer Tool: Room scene images for colors
- * - Color Discovery: Complementary color suggestions
- * - Official Calculator: Technical-grade coverage data
+ * Real API endpoints discovered from api.benjaminmoore.com:
+ *   - color/GetColorDetail?colorNumber={NUM}  → description, LRV, harmony, similar, shades
+ *   - color/GetPaletteByCode?code={CODE}&colorData=true → collection colors
+ *   - product/GetProductDetail?productNumber={NUM} → sheen, VOC, resin, use, datasheets
+ *   - product/GetProducts → full product catalog
+ *
+ * API key is embedded in URL path: /api/{API_KEY}/...
  */
 
-// Types
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
+import { fromIni } from '@aws-sdk/credential-providers';
+
+// ─────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────
+
+/** Color from the BM API */
+export interface BMApiColor {
+  number: string;
+  name: string;
+  family: string;
+  url: string;
+  shortURL: string;
+  hex: string;
+  r: number;
+  g: number;
+  b: number;
+  exteriorAvailability: string;
+  wetSampleSKU: string;
+  drySampleSKU: string;
+  eStoreAvailable: boolean;
+  productTypesAvailable: string;
+  stainOpacitiesAvailable: string | null;
+}
+
+/** Full color detail from GetColorDetail */
+export interface BMColorDetail {
+  color: BMApiColor;
+  description: string;
+  lrv: number;
+  isActive: boolean;
+  harmony: BMPalette[];
+  similar: BMPalette;
+  shades: BMPalette;
+}
+
+/** Palette structure used in harmony/similar/shades */
+export interface BMPalette {
+  name: string;
+  category: string | null;
+  colors: BMApiColor[];
+}
+
+/** Product from GetProductDetail */
+export interface BMProductDetail {
+  product: {
+    number: string;
+    name: string;
+    longName: string;
+    url: string;
+    shortURL: string;
+    image1x: string;
+    image2x: string;
+    image3x: string;
+    productGroup: string;
+    eStoreProductCode: string;
+  };
+  colors: string;
+  details: string;
+  stainFinish: string;
+  sheen: string;
+  cleanup: string;
+  resin: string;
+  use: string;
+  mpi: string;
+  voc_range: string;
+  dataSheets: {
+    label: string;
+    count: number;
+    list: { name: string; url: string; description: string }[];
+  }[];
+}
+
+/** Product list item from GetProducts */
+export interface BMProductListItem {
+  number: string;
+  name: string;
+  longName: string;
+  url: string;
+  shortURL: string;
+  image1x: string;
+  image2x: string;
+  image3x: string;
+  productGroup: string;
+  eStoreProductCode: string;
+}
+
+/** Frontend-facing types */
 export interface BMColor {
   colorNumber: string;
   colorName: string;
@@ -24,7 +118,7 @@ export interface RoomScene {
 }
 
 export interface ComplementaryResult {
-  type: 'complementary' | 'analogous' | 'triadic' | 'monochromatic';
+  type: string;
   colors: BMColor[];
 }
 
@@ -32,14 +126,11 @@ export interface CoverageData {
   colorNumber: string;
   productLine: string;
   finish: string;
-  coveragePerLiter: number; // m² per liter
-  coveragePerGallon: number; // sq ft per gallon
+  coveragePerLiter: number;
+  coveragePerGallon: number;
   coatsRecommended: number;
-  dryTime: {
-    touchDry: number; // hours
-    recoat: number; // hours
-  };
-  voc: number; // g/L
+  dryTime: { touchDry: number; recoat: number };
+  voc: string;
 }
 
 export interface CalculatorResult {
@@ -47,10 +138,7 @@ export interface CalculatorResult {
   surfaceArea: number;
   coats: number;
   litersNeeded: number;
-  containersNeeded: {
-    size: string;
-    quantity: number;
-  }[];
+  containersNeeded: { size: string; quantity: number }[];
   estimatedCost: {
     eur: number;
     breakdown: { size: string; unitPrice: number; quantity: number }[];
@@ -58,156 +146,283 @@ export interface CalculatorResult {
   coverageData: CoverageData;
 }
 
-// API Configuration
-const BM_API_CONFIG = {
-  baseUrl: 'https://api.benjaminmoore.com',
-  visualizerEndpoint: '/v1/visualizer',
-  discoveryEndpoint: '/v1/colors/discover',
-  calculatorEndpoint: '/v1/calculator',
+// ─────────────────────────────────────────────────────────
+// CONFIG & SECRETS
+// ─────────────────────────────────────────────────────────
+
+const AWS_CONFIG = {
+  profile: 'bmdecor',
+  region: 'eu-west-1',
+  secretName: 'BmDecor/BenjaminMoore',
 };
 
-// Simulated room scene images (would come from BM API in production)
-const ROOM_SCENE_TEMPLATES: Record<string, Omit<RoomScene, 'imageUrl'>[]> = {
-  default: [
-    { id: 'living-1', name: 'Modern Living Room', roomType: 'living-room' },
-    { id: 'bedroom-1', name: 'Serene Bedroom', roomType: 'bedroom' },
-    { id: 'kitchen-1', name: 'Contemporary Kitchen', roomType: 'kitchen' },
-    { id: 'bathroom-1', name: 'Spa Bathroom', roomType: 'bathroom' },
-    { id: 'dining-1', name: 'Elegant Dining Room', roomType: 'dining-room' },
-    { id: 'office-1', name: 'Home Office', roomType: 'office' },
+interface BMSecrets {
+  BM_API_KEY: string;
+  BM_API_ENDPOINT: string;
+}
+
+let cachedSecrets: BMSecrets | null = null;
+
+async function getSecrets(): Promise<BMSecrets> {
+  if (cachedSecrets) return cachedSecrets;
+
+  const client = new SecretsManagerClient({
+    region: AWS_CONFIG.region,
+    credentials: fromIni({ profile: AWS_CONFIG.profile }),
+  });
+
+  const response = await client.send(
+    new GetSecretValueCommand({ SecretId: AWS_CONFIG.secretName })
+  );
+
+  if (!response.SecretString) throw new Error('BM secret value is empty');
+  cachedSecrets = JSON.parse(response.SecretString) as BMSecrets;
+  return cachedSecrets;
+}
+
+function buildUrl(endpoint: string, apiKey: string, params: Record<string, string> = {}): string {
+  const base = `https://api.benjaminmoore.com/api/${apiKey}/${endpoint}`;
+  const qs = new URLSearchParams(params).toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+// ─────────────────────────────────────────────────────────
+// RAW API CALLS
+// ─────────────────────────────────────────────────────────
+
+/** Get detailed color info including harmony, similar, shades, LRV, description */
+export async function fetchColorDetail(colorNumber: string): Promise<BMColorDetail> {
+  const secrets = await getSecrets();
+  const url = buildUrl('color/GetColorDetail', secrets.BM_API_KEY, {
+    colorNumber,
+  });
+
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`BM API error: ${res.status}`);
+
+  const body = await res.json();
+  if (!body.data || !body.data.color) {
+    throw new Error(body.error || 'No color data returned');
+  }
+
+  return body.data as BMColorDetail;
+}
+
+/** Get product technical details (sheen, VOC, resin, use, datasheets) */
+export async function fetchProductDetail(productNumber: string): Promise<BMProductDetail> {
+  const secrets = await getSecrets();
+  const url = buildUrl('product/GetProductDetail', secrets.BM_API_KEY, {
+    productNumber,
+  });
+
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`BM API error: ${res.status}`);
+
+  const body = await res.json();
+  if (!body.data) throw new Error(body.error || 'No product data returned');
+
+  return body.data as BMProductDetail;
+}
+
+/** Get all products in catalog */
+export async function fetchProductList(): Promise<BMProductListItem[]> {
+  const secrets = await getSecrets();
+  const url = buildUrl('product/GetProducts', secrets.BM_API_KEY);
+
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`BM API error: ${res.status}`);
+
+  const body = await res.json();
+  const products = body.data || [];
+  return products.filter((p: BMProductListItem | null) => p !== null);
+}
+
+// ─────────────────────────────────────────────────────────
+// PRODUCT LINES (Official BM product numbers)
+// ─────────────────────────────────────────────────────────
+
+export const BM_PRODUCT_LINES = {
+  'Aura Interior': [
+    { number: 'N522', sheen: 'Matte' },
+    { number: 'N524', sheen: 'Eggshell' },
+    { number: 'N526', sheen: 'Satin' },
+    { number: 'N528', sheen: 'Semi-Gloss' },
   ],
+  'Aura Exterior': [
+    { number: 'N629', sheen: 'Flat' },
+    { number: 'N631', sheen: 'Satin' },
+    { number: 'N632', sheen: 'Soft Gloss' },
+    { number: 'N634', sheen: 'Low Lustre' },
+  ],
+  'Aura Bath & Spa': [
+    { number: '532', sheen: 'Matte' },
+  ],
+  'Regal Select Interior': [
+    { number: 'N547', sheen: 'Flat' },
+    { number: 'N548', sheen: 'Matte' },
+    { number: 'N549', sheen: 'Eggshell' },
+    { number: 'N550', sheen: 'Pearl' },
+    { number: 'N551', sheen: 'Semi-Gloss' },
+  ],
+  'Regal Select Exterior': [
+    { number: '400', sheen: 'Flat' },
+    { number: '401', sheen: 'Low Lustre' },
+    { number: '403', sheen: 'Soft Gloss' },
+  ],
+  'ben Interior': [
+    { number: 'N624', sheen: 'Matte' },
+    { number: 'N626', sheen: 'Eggshell' },
+    { number: 'N627', sheen: 'Semi-Gloss' },
+    { number: 'N628', sheen: 'Pearl' },
+  ],
+} as const;
+
+// Coverage rates per product line (m² per liter, from TDS)
+const COVERAGE_RATES: Record<string, number> = {
+  'Aura Interior': 14,
+  'Aura Exterior': 12,
+  'Aura Bath & Spa': 14,
+  'Regal Select Interior': 12,
+  'Regal Select Exterior': 11,
+  'ben Interior': 11,
 };
 
-// Coverage data by product line
-const COVERAGE_DATA: Record<string, Partial<CoverageData>> = {
-  'Aura': {
-    coveragePerLiter: 14,
-    coveragePerGallon: 400,
-    coatsRecommended: 2,
-    dryTime: { touchDry: 1, recoat: 4 },
-    voc: 50,
-  },
-  'Regal Select': {
-    coveragePerLiter: 12,
-    coveragePerGallon: 350,
-    coatsRecommended: 2,
-    dryTime: { touchDry: 1, recoat: 4 },
-    voc: 50,
-  },
-  'ben': {
-    coveragePerLiter: 11,
-    coveragePerGallon: 325,
-    coatsRecommended: 2,
-    dryTime: { touchDry: 1, recoat: 4 },
-    voc: 100,
-  },
-};
-
-// Price list (EUR, IVA included)
-const PRICE_LIST = {
+// Price list (EUR, IVA incluido)
+const PRICE_LIST: Record<string, number> = {
   '750ml': 28.0,
   '1L': 36.0,
   '2.5L': 68.0,
   '5L': 125.0,
 };
 
-/**
- * Benjamin Moore Visualizer Tool
- * Returns room scene images with the selected color applied
- */
-export async function getVisualizerScenes(
-  colorNumber: string,
-  hexCode: string
-): Promise<RoomScene[]> {
-  // In production, this would call the BM API:
-  // const response = await fetch(`${BM_API_CONFIG.baseUrl}${BM_API_CONFIG.visualizerEndpoint}`, {
-  //   method: 'POST',
-  //   headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ colorNumber, scenes: ['living-room', 'bedroom', 'kitchen'] })
-  // });
+// ─────────────────────────────────────────────────────────
+// COLOR DISCOVERY (powered by GetColorDetail)
+// ─────────────────────────────────────────────────────────
 
-  // Simulated response with color-tinted placeholder images
-  const scenes = ROOM_SCENE_TEMPLATES.default.map((scene) => ({
-    ...scene,
-    // Generate a placeholder with the color
-    imageUrl: generateVisualizerPlaceholder(hexCode, scene.roomType),
-  }));
-
-  return scenes;
+function apiColorToBMColor(c: BMApiColor, collection?: string): BMColor {
+  return {
+    colorNumber: c.number,
+    colorName: c.name,
+    hex: `#${c.hex}`,
+    rgb: { r: c.r, g: c.g, b: c.b },
+    collection,
+  };
 }
 
 /**
- * Generate a placeholder visualizer image URL
- * In production, this comes from the BM Visualizer API
- */
-function generateVisualizerPlaceholder(hexCode: string, roomType: string): string {
-  const color = hexCode.replace('#', '');
-  // Using a placeholder service that can apply color overlays
-  // In production, this would be actual rendered room images from BM
-  return `https://placehold.co/600x400/${color}/ffffff?text=${encodeURIComponent(roomType.replace('-', ' '))}`;
-}
-
-/**
- * Benjamin Moore Color Discovery API
- * Returns complementary, analogous, and related colors
+ * Discover complementary/coordinating colors from the BM API.
+ * Uses real "Goes Great With", "Similar Colors", and "More Shades" data.
  */
 export async function discoverComplementaryColors(
   colorNumber: string,
-  hexCode: string
 ): Promise<ComplementaryResult[]> {
-  // In production, this would call the BM Color Discovery API
-  // which returns curated color palettes based on color theory
+  const detail = await fetchColorDetail(colorNumber);
+  const results: ComplementaryResult[] = [];
 
-  const rgb = hexToRgb(hexCode);
-  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  // Harmony palettes ("Goes Great With")
+  if (detail.harmony && detail.harmony.length > 0) {
+    // Merge all harmony entries into one palette
+    const harmonyColors: BMColor[] = [];
+    for (const h of detail.harmony) {
+      if (h.colors) {
+        for (const c of h.colors) {
+          if (c && !harmonyColors.some(hc => hc.colorNumber === c.number)) {
+            harmonyColors.push(apiColorToBMColor(c));
+          }
+        }
+      }
+    }
+    if (harmonyColors.length > 0) {
+      results.push({ type: 'Goes Great With', colors: harmonyColors });
+    }
+  }
 
-  // Generate color theory based palettes
-  const results: ComplementaryResult[] = [
-    {
-      type: 'complementary',
-      colors: generateComplementaryColors(hsl, hexCode),
-    },
-    {
-      type: 'analogous',
-      colors: generateAnalogousColors(hsl, hexCode),
-    },
-    {
-      type: 'triadic',
-      colors: generateTriadicColors(hsl, hexCode),
-    },
-    {
-      type: 'monochromatic',
-      colors: generateMonochromaticColors(hsl, hexCode),
-    },
-  ];
+  // Similar colors
+  if (detail.similar && detail.similar.colors) {
+    const similar = detail.similar.colors
+      .filter(c => c !== null)
+      .map(c => apiColorToBMColor(c));
+    if (similar.length > 0) {
+      results.push({ type: 'Similar Colors', colors: similar });
+    }
+  }
+
+  // Shades (light-to-dark variations)
+  if (detail.shades && detail.shades.colors) {
+    const shades = detail.shades.colors
+      .filter(c => c !== null)
+      .map(c => apiColorToBMColor(c));
+    if (shades.length > 0) {
+      results.push({ type: 'More Shades', colors: shades });
+    }
+  }
 
   return results;
 }
 
+// ─────────────────────────────────────────────────────────
+// VISUALIZER (color-tinted room previews)
+// ─────────────────────────────────────────────────────────
+
+const ROOM_SCENES: Omit<RoomScene, 'imageUrl'>[] = [
+  { id: 'living-1', name: 'Modern Living Room', roomType: 'living-room' },
+  { id: 'bedroom-1', name: 'Serene Bedroom', roomType: 'bedroom' },
+  { id: 'kitchen-1', name: 'Contemporary Kitchen', roomType: 'kitchen' },
+  { id: 'bathroom-1', name: 'Spa Bathroom', roomType: 'bathroom' },
+  { id: 'dining-1', name: 'Elegant Dining Room', roomType: 'dining-room' },
+  { id: 'office-1', name: 'Home Office', roomType: 'office' },
+];
+
 /**
- * Official Benjamin Moore Calculator
- * Provides technical-grade coverage data and recommendations
+ * Room scene visualizer.
+ * BM Photo/RenderRoom API returned 404 in all probes — no server-side room
+ * rendering endpoint available. Uses color-tinted placeholders instead.
+ */
+export async function getVisualizerScenes(
+  _colorNumber: string,
+  hexCode: string,
+): Promise<RoomScene[]> {
+  const color = hexCode.replace('#', '');
+  return ROOM_SCENES.map((scene) => ({
+    ...scene,
+    imageUrl: `https://placehold.co/600x400/${color}/ffffff?text=${encodeURIComponent(
+      scene.name
+    )}`,
+  }));
+}
+
+// ─────────────────────────────────────────────────────────
+// CALCULATOR (official product specs + coverage math)
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Calculate paint needs using official BM product data.
+ * Fetches real product specs (sheen, VOC, resin) from the API.
  */
 export async function calculatePaintNeeds(
   colorNumber: string,
   surfaceArea: number,
   coats: number = 2,
-  productLine: string = 'Regal Select',
-  finish: string = 'Matte'
+  productLine: string = 'Regal Select Interior',
+  productNumber?: string,
 ): Promise<CalculatorResult> {
-  // In production, this would call the BM Calculator API
-  // which provides accurate coverage data for each product
+  // Fetch real product specs if product number provided
+  let sheen = 'Matte';
+  let vocRange = '< 50 g/L';
 
-  const coverage = COVERAGE_DATA[productLine] || COVERAGE_DATA['Regal Select'];
-  const coveragePerLiter = coverage.coveragePerLiter || 12;
+  if (productNumber) {
+    try {
+      const detail = await fetchProductDetail(productNumber);
+      sheen = detail.sheen || sheen;
+      vocRange = detail.voc_range || vocRange;
+    } catch {
+      // Fall back to defaults if product API fails
+    }
+  }
 
-  // Calculate liters needed
+  const coveragePerLiter = COVERAGE_RATES[productLine] || 12;
   const litersNeeded = (surfaceArea * coats) / coveragePerLiter;
-
-  // Determine optimal container sizes
   const containers = calculateOptimalContainers(litersNeeded);
-
-  // Calculate cost
   const estimatedCost = calculateCost(containers);
 
   return {
@@ -220,24 +435,20 @@ export async function calculatePaintNeeds(
     coverageData: {
       colorNumber,
       productLine,
-      finish,
+      finish: sheen,
       coveragePerLiter,
-      coveragePerGallon: coverage.coveragePerGallon || 350,
-      coatsRecommended: coverage.coatsRecommended || 2,
-      dryTime: coverage.dryTime || { touchDry: 1, recoat: 4 },
-      voc: coverage.voc || 50,
+      coveragePerGallon: Math.round(coveragePerLiter * 3.785 * 10.764),
+      coatsRecommended: 2,
+      dryTime: { touchDry: 1, recoat: 4 },
+      voc: vocRange,
     },
   };
 }
 
-/**
- * Calculate optimal container combination
- */
 function calculateOptimalContainers(litersNeeded: number): { size: string; quantity: number }[] {
   const containers: { size: string; quantity: number }[] = [];
   let remaining = litersNeeded;
 
-  // Try to use larger containers first for better value
   if (remaining >= 5) {
     const count = Math.floor(remaining / 5);
     containers.push({ size: '5L', quantity: count });
@@ -250,7 +461,6 @@ function calculateOptimalContainers(litersNeeded: number): { size: string; quant
     remaining -= count * 2.5;
   }
 
-  // Round up for remaining
   if (remaining > 0) {
     if (remaining <= 1) {
       containers.push({ size: '1L', quantity: 1 });
@@ -262,9 +472,6 @@ function calculateOptimalContainers(litersNeeded: number): { size: string; quant
   return containers;
 }
 
-/**
- * Calculate total cost
- */
 function calculateCost(containers: { size: string; quantity: number }[]): {
   eur: number;
   breakdown: { size: string; unitPrice: number; quantity: number }[];
@@ -273,183 +480,11 @@ function calculateCost(containers: { size: string; quantity: number }[]): {
   const breakdown: { size: string; unitPrice: number; quantity: number }[] = [];
 
   for (const container of containers) {
-    const unitPrice = PRICE_LIST[container.size as keyof typeof PRICE_LIST] || 68;
+    const unitPrice = PRICE_LIST[container.size] || 68;
     const subtotal = unitPrice * container.quantity;
     total += subtotal;
-    breakdown.push({
-      size: container.size,
-      unitPrice,
-      quantity: container.quantity,
-    });
+    breakdown.push({ size: container.size, unitPrice, quantity: container.quantity });
   }
 
   return { eur: Math.round(total * 100) / 100, breakdown };
-}
-
-// Color theory helper functions
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
-    : { r: 0, g: 0, b: 0 };
-}
-
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h = 0;
-  let s = 0;
-  const l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-
-    switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        break;
-      case g:
-        h = ((b - r) / d + 2) / 6;
-        break;
-      case b:
-        h = ((r - g) / d + 4) / 6;
-        break;
-    }
-  }
-
-  return { h: h * 360, s: s * 100, l: l * 100 };
-}
-
-function hslToHex(h: number, s: number, l: number): string {
-  h /= 360;
-  s /= 100;
-  l /= 100;
-
-  const hue2rgb = (p: number, q: number, t: number) => {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-
-  let r, g, b;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1 / 3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1 / 3);
-  }
-
-  const toHex = (x: number) => {
-    const hex = Math.round(x * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-}
-
-function generateComplementaryColors(hsl: { h: number; s: number; l: number }, _originalHex: string): BMColor[] {
-  // Complementary is 180° opposite on the color wheel
-  const compH = (hsl.h + 180) % 360;
-
-  return [
-    {
-      colorNumber: 'COMP-1',
-      colorName: 'Complementary Primary',
-      hex: hslToHex(compH, hsl.s, hsl.l),
-      rgb: hexToRgb(hslToHex(compH, hsl.s, hsl.l)),
-    },
-    {
-      colorNumber: 'COMP-2',
-      colorName: 'Complementary Light',
-      hex: hslToHex(compH, hsl.s * 0.8, Math.min(hsl.l + 15, 95)),
-      rgb: hexToRgb(hslToHex(compH, hsl.s * 0.8, Math.min(hsl.l + 15, 95))),
-    },
-    {
-      colorNumber: 'COMP-3',
-      colorName: 'Complementary Dark',
-      hex: hslToHex(compH, hsl.s * 0.9, Math.max(hsl.l - 15, 10)),
-      rgb: hexToRgb(hslToHex(compH, hsl.s * 0.9, Math.max(hsl.l - 15, 10))),
-    },
-  ];
-}
-
-function generateAnalogousColors(hsl: { h: number; s: number; l: number }, _originalHex: string): BMColor[] {
-  // Analogous colors are 30° apart on the color wheel
-  return [
-    {
-      colorNumber: 'ANALOG-1',
-      colorName: 'Analogous Left',
-      hex: hslToHex((hsl.h - 30 + 360) % 360, hsl.s, hsl.l),
-      rgb: hexToRgb(hslToHex((hsl.h - 30 + 360) % 360, hsl.s, hsl.l)),
-    },
-    {
-      colorNumber: 'ANALOG-2',
-      colorName: 'Analogous Right',
-      hex: hslToHex((hsl.h + 30) % 360, hsl.s, hsl.l),
-      rgb: hexToRgb(hslToHex((hsl.h + 30) % 360, hsl.s, hsl.l)),
-    },
-    {
-      colorNumber: 'ANALOG-3',
-      colorName: 'Analogous Far',
-      hex: hslToHex((hsl.h + 60) % 360, hsl.s * 0.9, hsl.l),
-      rgb: hexToRgb(hslToHex((hsl.h + 60) % 360, hsl.s * 0.9, hsl.l)),
-    },
-  ];
-}
-
-function generateTriadicColors(hsl: { h: number; s: number; l: number }, _originalHex: string): BMColor[] {
-  // Triadic colors are 120° apart on the color wheel
-  return [
-    {
-      colorNumber: 'TRIAD-1',
-      colorName: 'Triadic First',
-      hex: hslToHex((hsl.h + 120) % 360, hsl.s, hsl.l),
-      rgb: hexToRgb(hslToHex((hsl.h + 120) % 360, hsl.s, hsl.l)),
-    },
-    {
-      colorNumber: 'TRIAD-2',
-      colorName: 'Triadic Second',
-      hex: hslToHex((hsl.h + 240) % 360, hsl.s, hsl.l),
-      rgb: hexToRgb(hslToHex((hsl.h + 240) % 360, hsl.s, hsl.l)),
-    },
-  ];
-}
-
-function generateMonochromaticColors(hsl: { h: number; s: number; l: number }, _originalHex: string): BMColor[] {
-  // Monochromatic uses same hue with different saturation/lightness
-  return [
-    {
-      colorNumber: 'MONO-1',
-      colorName: 'Lighter Shade',
-      hex: hslToHex(hsl.h, hsl.s * 0.7, Math.min(hsl.l + 20, 95)),
-      rgb: hexToRgb(hslToHex(hsl.h, hsl.s * 0.7, Math.min(hsl.l + 20, 95))),
-    },
-    {
-      colorNumber: 'MONO-2',
-      colorName: 'Darker Shade',
-      hex: hslToHex(hsl.h, hsl.s * 1.1, Math.max(hsl.l - 20, 10)),
-      rgb: hexToRgb(hslToHex(hsl.h, hsl.s * 1.1, Math.max(hsl.l - 20, 10))),
-    },
-    {
-      colorNumber: 'MONO-3',
-      colorName: 'Muted Shade',
-      hex: hslToHex(hsl.h, hsl.s * 0.5, hsl.l),
-      rgb: hexToRgb(hslToHex(hsl.h, hsl.s * 0.5, hsl.l)),
-    },
-  ];
 }

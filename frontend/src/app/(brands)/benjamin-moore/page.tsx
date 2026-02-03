@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +15,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import type { RoomScene, ComplementaryResult, CalculatorResult } from '@/lib/api/benjamin-moore';
+import type { CalculatorResult, ComplementaryResult, RoomScene } from '@/lib/api/benjamin-moore';
 
 // Types
 interface BMColor {
@@ -33,22 +32,82 @@ interface BMColor {
   inStock: boolean;
 }
 
-// Finish type options
-const FINISH_TYPES = [
-  { id: 'matte', label: 'Matte', description: 'Flat, non-reflective finish' },
-  { id: 'eggshell', label: 'Eggshell', description: 'Soft, low-sheen finish' },
-  { id: 'satin', label: 'Satin', description: 'Pearl-like, subtle shine' },
-  { id: 'semi-gloss', label: 'Semi-Gloss', description: 'Durable, easy to clean' },
+// Discovery API response with real BM data
+interface DiscoveryResponse {
+  palettes: ComplementaryResult[];
+  description: string;
+  lrv: number;
+  isActive: boolean;
+}
+
+// All 11 official BM collections
+const COLLECTIONS = [
+  { id: 'all', label: 'All Collections', apiName: '' },
+  { id: 'HC', label: 'Historical Colors', apiName: 'Historical Colors' },
+  { id: 'BMC', label: 'Benjamin Moore Classics', apiName: 'Benjamin Moore Classics' },
+  { id: 'CP', label: 'Color Preview', apiName: 'Color Preview' },
+  { id: 'CC', label: 'Designer Classics', apiName: 'Designer Classics' },
+  { id: 'CSP', label: 'Color Stories', apiName: 'Color Stories' },
+  { id: 'AF', label: 'Affinity', apiName: 'Affinity Colors' },
+  { id: 'CW', label: 'Williamsburg', apiName: 'Williamsburg Paint Colors' },
+  { id: 'OC', label: 'Off White', apiName: 'Off White Collection' },
+  { id: 'PM', label: 'Ready-Mix', apiName: 'Ready Mix Colors' },
+  { id: 'SC', label: 'Fenway', apiName: 'Fenway Collection' },
 ];
 
-// Collection options
-const COLLECTIONS = [
-  { id: 'all', label: 'All Collections', count: 0 },
-  { id: 'historical', label: 'Historical Collection', count: 0 },
-  { id: 'classics', label: 'Benjamin Moore Classics', count: 0 },
-  { id: 'affinity', label: 'Affinity Collection', count: 0 },
-  { id: 'color-stories', label: 'Color Stories', count: 0 },
-  { id: 'off-white', label: 'Off-White Collection', count: 0 },
+// Product lines with real BM product numbers
+const PRODUCT_LINES = [
+  {
+    name: 'Aura Interior',
+    sheens: [
+      { label: 'Matte', productNumber: 'N522' },
+      { label: 'Eggshell', productNumber: 'N524' },
+      { label: 'Satin', productNumber: 'N526' },
+      { label: 'Semi-Gloss', productNumber: 'N528' },
+    ],
+  },
+  {
+    name: 'Regal Select Interior',
+    sheens: [
+      { label: 'Flat', productNumber: 'N547' },
+      { label: 'Matte', productNumber: 'N548' },
+      { label: 'Eggshell', productNumber: 'N549' },
+      { label: 'Pearl', productNumber: 'N550' },
+      { label: 'Semi-Gloss', productNumber: 'N551' },
+    ],
+  },
+  {
+    name: 'ben Interior',
+    sheens: [
+      { label: 'Matte', productNumber: 'N624' },
+      { label: 'Eggshell', productNumber: 'N626' },
+      { label: 'Semi-Gloss', productNumber: 'N627' },
+      { label: 'Pearl', productNumber: 'N628' },
+    ],
+  },
+  {
+    name: 'Aura Exterior',
+    sheens: [
+      { label: 'Flat', productNumber: 'N629' },
+      { label: 'Satin', productNumber: 'N631' },
+      { label: 'Soft Gloss', productNumber: 'N632' },
+      { label: 'Low Lustre', productNumber: 'N634' },
+    ],
+  },
+  {
+    name: 'Regal Select Exterior',
+    sheens: [
+      { label: 'Flat', productNumber: '400' },
+      { label: 'Low Lustre', productNumber: '401' },
+      { label: 'Soft Gloss', productNumber: '403' },
+    ],
+  },
+  {
+    name: 'Aura Bath & Spa',
+    sheens: [
+      { label: 'Matte', productNumber: '532' },
+    ],
+  },
 ];
 
 // Helper functions
@@ -67,16 +126,32 @@ function getTextColor(hex: string): string {
   return calculateLRV(hex) > 50 ? '#2C2C2C' : '#FFFFFF';
 }
 
-// Official BM API Calculator Component
-function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null }) {
-  const [area, setArea] = useState<number>(0);
+// ─────────────────────────────────────────────────────────
+// PROFESSIONAL CALCULATOR (with real BM product lines)
+// ─────────────────────────────────────────────────────────
+
+function ProfessionalCalculator({ selectedColor }: { selectedColor: BMColor | null }) {
+  const [wallHeight, setWallHeight] = useState<number>(0);
+  const [wallWidth, setWallWidth] = useState<number>(0);
+  const [doors, setDoors] = useState<number>(1);
+  const [windows, setWindows] = useState<number>(1);
   const [coats, setCoats] = useState<number>(2);
-  const [productLine, setProductLine] = useState('Regal Select');
+  const [selectedLine, setSelectedLine] = useState(0);
+  const [selectedSheen, setSelectedSheen] = useState(0);
   const [result, setResult] = useState<CalculatorResult | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
-  const calculateNeeds = async () => {
-    if (!selectedColor || area <= 0) return;
+  // Calculate net surface area
+  const grossArea = wallHeight * wallWidth;
+  const doorArea = doors * 1.98; // Standard door ~1.98 m²
+  const windowArea = windows * 1.2; // Standard window ~1.2 m²
+  const netArea = Math.max(0, grossArea - doorArea - windowArea);
+
+  const line = PRODUCT_LINES[selectedLine];
+  const sheen = line.sheens[selectedSheen] || line.sheens[0];
+
+  const calculateNeeds = useCallback(async () => {
+    if (!selectedColor || netArea <= 0) return;
 
     setIsCalculating(true);
     try {
@@ -85,10 +160,10 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           colorNumber: selectedColor.colorCode,
-          surfaceArea: area,
+          surfaceArea: netArea,
           coats,
-          productLine,
-          finish: 'Matte',
+          productLine: line.name,
+          productNumber: sheen.productNumber,
         }),
       });
 
@@ -101,14 +176,14 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
     } finally {
       setIsCalculating(false);
     }
-  };
+  }, [selectedColor, netArea, coats, line.name, sheen.productNumber]);
 
   useEffect(() => {
-    if (area > 0 && selectedColor) {
-      const debounce = setTimeout(calculateNeeds, 500);
+    if (netArea > 0 && selectedColor) {
+      const debounce = setTimeout(calculateNeeds, 600);
       return () => clearTimeout(debounce);
     }
-  }, [area, coats, productLine, selectedColor]);
+  }, [netArea, coats, selectedLine, selectedSheen, selectedColor, calculateNeeds]);
 
   return (
     <Card className="bg-[#2C2C2C] text-white border-0">
@@ -117,41 +192,106 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
           <svg className="w-5 h-5 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
           </svg>
-          <h3 className="font-semibold">Official BM Calculator</h3>
-          <Badge className="bg-[#C9A86C]/20 text-[#C9A86C] text-xs">API</Badge>
+          <h3 className="font-semibold text-sm">Professional Calculator</h3>
+          <Badge className="bg-[#C9A86C]/20 text-[#C9A86C] text-xs">BM API</Badge>
         </div>
 
-        <div className="space-y-4">
-          {/* Product Line Selection */}
+        <div className="space-y-3">
+          {/* Product Line */}
           <div>
             <label className="text-xs text-white/60 mb-1 block">Product Line</label>
             <select
-              value={productLine}
-              onChange={(e) => setProductLine(e.target.value)}
-              className="w-full bg-white/10 border-white/20 text-white text-sm rounded-lg p-2"
+              value={selectedLine}
+              onChange={(e) => { setSelectedLine(Number(e.target.value)); setSelectedSheen(0); }}
+              className="w-full bg-white/10 border border-white/20 text-white text-sm rounded-lg p-2"
             >
-              <option value="Aura">Aura (Premium)</option>
-              <option value="Regal Select">Regal Select</option>
-              <option value="ben">ben (Value)</option>
+              {PRODUCT_LINES.map((pl, i) => (
+                <option key={pl.name} value={i} className="bg-[#2C2C2C]">{pl.name}</option>
+              ))}
             </select>
           </div>
 
-          {/* Area Input */}
+          {/* Sheen */}
           <div>
-            <label className="text-xs text-white/60 mb-1 block">Surface Area (m²)</label>
-            <Input
-              type="number"
-              placeholder="Enter area..."
-              value={area || ''}
-              onChange={(e) => setArea(parseFloat(e.target.value) || 0)}
-              className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-            />
+            <label className="text-xs text-white/60 mb-1 block">Sheen</label>
+            <div className="flex flex-wrap gap-1.5">
+              {line.sheens.map((s, i) => (
+                <button
+                  key={s.productNumber}
+                  onClick={() => setSelectedSheen(i)}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                    selectedSheen === i
+                      ? 'bg-[#C9A86C] text-[#2C2C2C] font-medium'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Coats Slider */}
+          {/* Wall Dimensions */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-white/60 mb-1 block">Wall Height (m)</label>
+              <Input
+                type="number"
+                step="0.1"
+                placeholder="2.5"
+                value={wallHeight || ''}
+                onChange={(e) => setWallHeight(parseFloat(e.target.value) || 0)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-9"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-white/60 mb-1 block">Wall Width (m)</label>
+              <Input
+                type="number"
+                step="0.1"
+                placeholder="4.0"
+                value={wallWidth || ''}
+                onChange={(e) => setWallWidth(parseFloat(e.target.value) || 0)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-9"
+              />
+            </div>
+          </div>
+
+          {/* Doors & Windows */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-white/60 mb-1 block">Doors</label>
+              <Input
+                type="number"
+                min="0"
+                value={doors}
+                onChange={(e) => setDoors(parseInt(e.target.value) || 0)}
+                className="bg-white/10 border-white/20 text-white h-9"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-white/60 mb-1 block">Windows</label>
+              <Input
+                type="number"
+                min="0"
+                value={windows}
+                onChange={(e) => setWindows(parseInt(e.target.value) || 0)}
+                className="bg-white/10 border-white/20 text-white h-9"
+              />
+            </div>
+          </div>
+
+          {/* Net Area Display */}
+          {grossArea > 0 && (
+            <div className="text-xs text-white/50 px-1">
+              Gross: {grossArea.toFixed(1)}m² − Doors: {doorArea.toFixed(1)}m² − Windows: {windowArea.toFixed(1)}m² = <span className="text-[#C9A86C] font-medium">{netArea.toFixed(1)}m² net</span>
+            </div>
+          )}
+
+          {/* Coats */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-white/60">Number of Coats</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-white/60">Coats</label>
               <span className="text-sm font-medium text-[#C9A86C]">{coats}</span>
             </div>
             <Slider
@@ -160,17 +300,14 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
               min={1}
               max={3}
               step={1}
-              className="py-2"
+              className="py-1"
             />
           </div>
 
           {/* Selected Color */}
           {selectedColor && (
             <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-              <div
-                className="w-8 h-8 rounded"
-                style={{ backgroundColor: selectedColor.hexCode }}
-              />
+              <div className="w-8 h-8 rounded" style={{ backgroundColor: selectedColor.hexCode }} />
               <div className="text-sm">
                 <div className="font-medium">{selectedColor.name}</div>
                 <div className="text-white/60 text-xs">{selectedColor.colorCode}</div>
@@ -182,57 +319,59 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
 
           {/* Results */}
           {isCalculating ? (
-            <div className="text-center py-4">
-              <div className="animate-spin w-6 h-6 border-2 border-[#C9A86C] border-t-transparent rounded-full mx-auto" />
+            <div className="text-center py-3">
+              <div className="animate-spin w-5 h-5 border-2 border-[#C9A86C] border-t-transparent rounded-full mx-auto" />
               <p className="text-xs text-white/60 mt-2">Calculating...</p>
             </div>
           ) : result ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="text-xs text-white/60 mb-1">Liters Needed</div>
-                  <div className="text-xl font-semibold text-white">
-                    {result.litersNeeded}L
-                  </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2.5 bg-white/5 rounded-lg">
+                  <div className="text-xs text-white/60 mb-0.5">Liters Needed</div>
+                  <div className="text-lg font-semibold text-white">{result.litersNeeded}L</div>
                 </div>
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="text-xs text-white/60 mb-1">Coverage</div>
-                  <div className="text-xl font-semibold text-white">
-                    {result.coverageData.coveragePerLiter}m²/L
-                  </div>
+                <div className="p-2.5 bg-white/5 rounded-lg">
+                  <div className="text-xs text-white/60 mb-0.5">Coverage</div>
+                  <div className="text-lg font-semibold text-white">{result.coverageData.coveragePerLiter}m²/L</div>
                 </div>
               </div>
 
               {/* Container Breakdown */}
-              <div className="p-3 bg-white/5 rounded-lg">
-                <div className="text-xs text-white/60 mb-2">Recommended Purchase</div>
+              <div className="p-2.5 bg-white/5 rounded-lg">
+                <div className="text-xs text-white/60 mb-1.5">Recommended Purchase</div>
                 <div className="space-y-1">
                   {result.containersNeeded.map((c, i) => (
                     <div key={i} className="flex justify-between text-sm">
                       <span>{c.quantity}x {c.size}</span>
                       <span className="text-white/60">
-                        €{(result.estimatedCost.breakdown[i]?.unitPrice * c.quantity).toFixed(2)}
+                        €{((result.estimatedCost.breakdown[i]?.unitPrice || 0) * c.quantity).toFixed(2)}
                       </span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Total Cost */}
-              <div className="p-4 bg-[#C9A86C]/20 rounded-lg">
+              {/* Total */}
+              <div className="p-3 bg-[#C9A86C]/20 rounded-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-white/80">Total Estimate</span>
-                  <span className="text-2xl font-semibold text-[#C9A86C]">
-                    €{result.estimatedCost.eur.toFixed(2)}
-                  </span>
+                  <span className="text-xl font-semibold text-[#C9A86C]">€{result.estimatedCost.eur.toFixed(2)}</span>
                 </div>
                 <p className="text-xs text-white/50 mt-1">
-                  {productLine} · {coats} coats · IVA incluido
+                  {line.name} · {sheen.label} · {coats} coats · IVA incluido
                 </p>
               </div>
 
-              {/* Technical Data */}
-              <div className="text-xs text-white/50 space-y-1">
+              {/* Tech Data */}
+              <div className="text-xs text-white/50 space-y-0.5">
+                <div className="flex justify-between">
+                  <span>Product</span>
+                  <span className="font-mono">{sheen.productNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Finish</span>
+                  <span>{result.coverageData.finish}</span>
+                </div>
                 <div className="flex justify-between">
                   <span>Dry Time (touch)</span>
                   <span>{result.coverageData.dryTime.touchDry}h</span>
@@ -243,13 +382,13 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
                 </div>
                 <div className="flex justify-between">
                   <span>VOC</span>
-                  <span>{result.coverageData.voc} g/L</span>
+                  <span>{result.coverageData.voc}</span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-4 text-white/50 text-sm">
-              Enter surface area to calculate
+            <div className="text-center py-3 text-white/50 text-sm">
+              Enter wall dimensions to calculate
             </div>
           )}
         </div>
@@ -258,7 +397,10 @@ function OfficialBMCalculator({ selectedColor }: { selectedColor: BMColor | null
   );
 }
 
-// Technical Specs Drawer with BM API Integration
+// ─────────────────────────────────────────────────────────
+// TECHNICAL SPECS DRAWER (real BM API data)
+// ─────────────────────────────────────────────────────────
+
 function TechnicalSpecsDrawer({
   color,
   isOpen,
@@ -270,9 +412,11 @@ function TechnicalSpecsDrawer({
 }) {
   const [roomScenes, setRoomScenes] = useState<RoomScene[]>([]);
   const [palettes, setPalettes] = useState<ComplementaryResult[]>([]);
+  const [apiDescription, setApiDescription] = useState<string>('');
+  const [apiLRV, setApiLRV] = useState<number | null>(null);
   const [isLoadingScenes, setIsLoadingScenes] = useState(false);
   const [isLoadingPalettes, setIsLoadingPalettes] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visualizer' | 'colors' | 'specs'>('visualizer');
+  const [activeTab, setActiveTab] = useState<'visualizer' | 'colors' | 'specs'>('colors');
 
   useEffect(() => {
     if (color && isOpen) {
@@ -287,22 +431,27 @@ function TechnicalSpecsDrawer({
         .then((data) => setRoomScenes(data.scenes || []))
         .finally(() => setIsLoadingScenes(false));
 
-      // Load complementary palettes
+      // Load real BM discovery data (harmony, similar, shades, description, LRV)
       setIsLoadingPalettes(true);
       fetch('/api/bm/discover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ colorNumber: color.colorCode, hexCode: color.hexCode }),
+        body: JSON.stringify({ colorNumber: color.colorCode }),
       })
         .then((res) => res.json())
-        .then((data) => setPalettes(data.palettes || []))
+        .then((data: DiscoveryResponse) => {
+          setPalettes(data.palettes || []);
+          setApiDescription(data.description || '');
+          setApiLRV(data.lrv ?? null);
+        })
         .finally(() => setIsLoadingPalettes(false));
     }
   }, [color, isOpen]);
 
   if (!color) return null;
 
-  const lrv = calculateLRV(color.hexCode);
+  const fallbackLRV = calculateLRV(color.hexCode);
+  const lrv = apiLRV !== null ? Math.round(apiLRV) : fallbackLRV;
   const rgb = hexToRGB(color.hexCode);
 
   return (
@@ -319,13 +468,20 @@ function TechnicalSpecsDrawer({
         <div className="mt-4">
           {/* Color Swatch */}
           <div
-            className="w-full aspect-[3/1] rounded-xl shadow-lg mb-4"
+            className="w-full aspect-[3/1] rounded-xl shadow-lg mb-3"
             style={{ backgroundColor: color.hexCode }}
           />
 
+          {/* Official Description from BM API */}
+          {apiDescription && (
+            <p className="text-sm text-muted-foreground italic mb-4 px-1">
+              &ldquo;{apiDescription}&rdquo;
+            </p>
+          )}
+
           {/* Tab Navigation */}
           <div className="flex gap-1 mb-4 bg-secondary p-1 rounded-lg">
-            {(['visualizer', 'colors', 'specs'] as const).map((tab) => (
+            {(['colors', 'visualizer', 'specs'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -335,59 +491,13 @@ function TechnicalSpecsDrawer({
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'visualizer' ? 'Room Visualizer' : tab === 'colors' ? 'Color Palette' : 'Technical Specs'}
+                {tab === 'colors' ? 'BM Palettes' : tab === 'visualizer' ? 'Visualizer' : 'Technical'}
               </button>
             ))}
           </div>
 
           {/* Tab Content */}
           <AnimatePresence mode="wait">
-            {activeTab === 'visualizer' && (
-              <motion.div
-                key="visualizer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  <h3 className="text-sm font-semibold">BM Visualizer Tool</h3>
-                </div>
-
-                {isLoadingScenes ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="aspect-video bg-secondary rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    {roomScenes.slice(0, 4).map((scene) => (
-                      <div key={scene.id} className="relative group">
-                        <div className="aspect-video rounded-lg overflow-hidden">
-                          <Image
-                            src={scene.imageUrl}
-                            alt={scene.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                          <span className="text-xs text-white font-medium">{scene.name}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Powered by Benjamin Moore Visualizer API
-                </p>
-              </motion.div>
-            )}
-
             {activeTab === 'colors' && (
               <motion.div
                 key="colors"
@@ -400,16 +510,16 @@ function TechnicalSpecsDrawer({
                   <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                   </svg>
-                  <h3 className="text-sm font-semibold">BM Color Discovery</h3>
+                  <h3 className="text-sm font-semibold">Official BM Color Palettes</h3>
                 </div>
 
                 {isLoadingPalettes ? (
                   <div className="space-y-4">
-                    {[1, 2].map((i) => (
+                    {[1, 2, 3].map((i) => (
                       <div key={i} className="h-20 bg-secondary rounded-lg animate-pulse" />
                     ))}
                   </div>
-                ) : (
+                ) : palettes.length > 0 ? (
                   <div className="space-y-4">
                     {palettes.map((palette) => (
                       <div key={palette.type} className="p-3 bg-secondary rounded-lg">
@@ -417,14 +527,17 @@ function TechnicalSpecsDrawer({
                           {palette.type}
                         </h4>
                         <div className="flex gap-2">
-                          {palette.colors.map((c, i) => (
-                            <div key={i} className="flex-1">
+                          {palette.colors.map((c) => (
+                            <div key={c.colorNumber} className="flex-1 min-w-0">
                               <div
                                 className="aspect-square rounded-lg shadow-sm mb-1"
                                 style={{ backgroundColor: c.hex }}
                               />
-                              <div className="text-xs font-mono text-center text-muted-foreground">
-                                {c.hex}
+                              <div className="text-[10px] font-medium text-foreground truncate">
+                                {c.colorName}
+                              </div>
+                              <div className="text-[10px] font-mono text-muted-foreground">
+                                {c.colorNumber}
                               </div>
                             </div>
                           ))}
@@ -432,9 +545,59 @@ function TechnicalSpecsDrawer({
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    No palette data available for this color.
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Powered by Benjamin Moore Color Discovery API
+                  Curated by Benjamin Moore via GetColorDetail API
+                </p>
+              </motion.div>
+            )}
+
+            {activeTab === 'visualizer' && (
+              <motion.div
+                key="visualizer"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  <h3 className="text-sm font-semibold">Room Preview</h3>
+                </div>
+
+                {isLoadingScenes ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="aspect-video bg-secondary rounded-lg animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {roomScenes.slice(0, 6).map((scene) => (
+                      <div key={scene.id} className="relative group">
+                        <div
+                          className="aspect-video rounded-lg overflow-hidden flex items-center justify-center"
+                          style={{ backgroundColor: color.hexCode }}
+                        >
+                          <span
+                            className="text-xs font-medium px-2 text-center"
+                            style={{ color: getTextColor(color.hexCode) }}
+                          >
+                            {scene.name}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Color-tinted previews — BM Photo API not available
                 </p>
               </motion.div>
             )}
@@ -449,7 +612,9 @@ function TechnicalSpecsDrawer({
               >
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-secondary rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">LRV</div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      LRV {apiLRV !== null ? '(Official)' : '(Calculated)'}
+                    </div>
                     <div className="text-3xl font-semibold text-foreground">{lrv}</div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {lrv > 50 ? 'Light reflectance' : 'Low reflectance'}
@@ -496,6 +661,10 @@ function TechnicalSpecsDrawer({
                     <span className="text-muted-foreground">Volume</span>
                     <span className="font-medium">{color.volume}</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">In Stock</span>
+                    <span className="font-medium">{color.inStock ? 'Yes' : 'No'}</span>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -519,7 +688,10 @@ function TechnicalSpecsDrawer({
   );
 }
 
-// Color Card Component
+// ─────────────────────────────────────────────────────────
+// COLOR CARD
+// ─────────────────────────────────────────────────────────
+
 function BMColorCard({
   color,
   onSelect,
@@ -580,15 +752,18 @@ function BMColorCard({
   );
 }
 
-// Main Page Component
+// ─────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────
+
 export default function BenjaminMoorePage() {
   const [colors, setColors] = useState<BMColor[]>([]);
   const [selectedColor, setSelectedColor] = useState<BMColor | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [lrvRange, setLrvRange] = useState<[number, number]>([0, 100]);
-  const [selectedFinishes, setSelectedFinishes] = useState<string[]>(['matte']);
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [collectionCounts, setCollectionCounts] = useState<Record<string, number>>({});
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     async function fetchColors() {
@@ -620,24 +795,19 @@ export default function BenjaminMoorePage() {
 
     const collectionMatch =
       selectedCollection === 'all' ||
-      (selectedCollection === 'historical' && color.collection === 'Historical Collection') ||
-      (selectedCollection === 'classics' && color.collection === 'Benjamin Moore Classics') ||
-      (selectedCollection === 'affinity' && color.collection === 'Affinity Collection') ||
-      (selectedCollection === 'color-stories' && color.collection === 'Color Stories') ||
-      (selectedCollection === 'off-white' && color.collection === 'Off-White Collection');
+      COLLECTIONS.find((c) => c.id === selectedCollection)?.apiName === color.collection;
 
-    return lrvMatch && collectionMatch;
+    const searchMatch =
+      !searchQuery ||
+      color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return lrvMatch && collectionMatch && searchMatch;
   });
 
   const handleColorSelect = (color: BMColor) => {
     setSelectedColor(color);
     setIsDrawerOpen(true);
-  };
-
-  const toggleFinish = (finishId: string) => {
-    setSelectedFinishes((prev) =>
-      prev.includes(finishId) ? prev.filter((f) => f !== finishId) : [...prev, finishId]
-    );
   };
 
   return (
@@ -656,7 +826,7 @@ export default function BenjaminMoorePage() {
               Grand Lobby
             </Link>
             <div className="flex items-center gap-3">
-              <Badge className="bg-[#C9A86C]/20 text-[#C9A86C]">BM API Tools</Badge>
+              <Badge className="bg-[#C9A86C]/20 text-[#C9A86C]">Production API</Badge>
               <Badge className="bg-[#C9A86C] text-[#2C2C2C]">
                 {filteredColors.length} Colors
               </Badge>
@@ -671,14 +841,14 @@ export default function BenjaminMoorePage() {
           <div className="flex items-center gap-3 mb-2">
             <div className="w-1 h-5 bg-[#C9A86C] rounded-full" />
             <span className="text-[#C9A86C] font-medium uppercase tracking-wider text-xs">
-              Technical Boutique · Full API Integration
+              Technical Boutique · BM Production API
             </span>
           </div>
           <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-semibold tracking-tight mb-1">
             Benjamin Moore
           </h1>
           <p className="text-white/60 text-sm max-w-xl">
-            Full catalog with Visualizer, Color Discovery, and Official Calculator powered by BM API.
+            4,000+ official colors with real BM Color Discovery, Professional Calculator, and Room Visualizer.
           </p>
         </div>
       </section>
@@ -686,15 +856,34 @@ export default function BenjaminMoorePage() {
       {/* Main Layout */}
       <main className="container mx-auto px-6 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Charcoal Sidebar */}
-          <aside className="lg:w-80 shrink-0 space-y-6">
-            {/* Official BM Calculator */}
-            <OfficialBMCalculator selectedColor={selectedColor} />
+          {/* Sidebar */}
+          <aside className="lg:w-80 shrink-0 space-y-5">
+            {/* Calculator */}
+            <ProfessionalCalculator selectedColor={selectedColor} />
+
+            {/* Search */}
+            <Card className="bg-[#2C2C2C] text-white border-0">
+              <CardContent className="p-5">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Search
+                </h3>
+                <Input
+                  type="text"
+                  placeholder="Color name or code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                />
+              </CardContent>
+            </Card>
 
             {/* LRV Range */}
             <Card className="bg-[#2C2C2C] text-white border-0">
               <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
@@ -714,51 +903,16 @@ export default function BenjaminMoorePage() {
               </CardContent>
             </Card>
 
-            {/* Finish Types */}
+            {/* Collections (all 11) */}
             <Card className="bg-[#2C2C2C] text-white border-0">
               <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-4">Finish Type</h3>
-                <div className="space-y-2">
-                  {FINISH_TYPES.map((finish) => (
-                    <label key={finish.id} className="flex items-start gap-3 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={selectedFinishes.includes(finish.id)}
-                        onChange={() => toggleFinish(finish.id)}
-                        className="mt-1 rounded border-white/30 bg-white/10 text-[#C9A86C]"
-                      />
-                      <div>
-                        <div className="text-sm font-medium group-hover:text-[#C9A86C] transition-colors">
-                          {finish.label}
-                        </div>
-                        <div className="text-xs text-white/50">{finish.description}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Collections */}
-            <Card className="bg-[#2C2C2C] text-white border-0">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-4">Collections</h3>
+                <h3 className="text-sm font-semibold mb-3">Collections</h3>
                 <div className="space-y-1">
                   {COLLECTIONS.map((col) => {
                     const count =
                       col.id === 'all'
                         ? collectionCounts.all || 0
-                        : collectionCounts[
-                            col.id === 'historical'
-                              ? 'Historical Collection'
-                              : col.id === 'classics'
-                              ? 'Benjamin Moore Classics'
-                              : col.id === 'affinity'
-                              ? 'Affinity Collection'
-                              : col.id === 'color-stories'
-                              ? 'Color Stories'
-                              : 'Off-White Collection'
-                          ] || 0;
+                        : collectionCounts[col.apiName] || 0;
 
                     return (
                       <button
@@ -795,7 +949,7 @@ export default function BenjaminMoorePage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               <AnimatePresence mode="popLayout">
-                {filteredColors.map((color) => (
+                {filteredColors.slice(0, 200).map((color) => (
                   <motion.div
                     key={color.id}
                     layout
@@ -808,6 +962,12 @@ export default function BenjaminMoorePage() {
                 ))}
               </AnimatePresence>
             </div>
+
+            {filteredColors.length > 200 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Showing 200 of {filteredColors.length} colors. Use search or filters to narrow results.
+              </div>
+            )}
 
             {filteredColors.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
@@ -829,7 +989,7 @@ export default function BenjaminMoorePage() {
       <footer className="border-t border-[#E8E2D9] bg-white mt-auto">
         <div className="container mx-auto px-6 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <span>Benjamin Moore® API Integration · BM Decoración, Marbella</span>
+            <span>Benjamin Moore® Production API · BM Decoraci&oacute;n, Marbella</span>
             <span>IVA Incluido (21%) · Prices in EUR</span>
           </div>
         </div>
