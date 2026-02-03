@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAvailableSizes, BM_PRICE_LIST } from '@/lib/cart/variant-config';
+import { getAvailableSizes, getPriceForSize, SIZE_DISPLAY } from '@/lib/cart/variant-config';
 import type { ContainerSize } from '@/lib/cart/variant-config';
 import type { SelectedVariant } from '@/lib/cart/types';
 
@@ -43,7 +43,7 @@ export default function VariantSelector({ productLines, onVariantChange }: Varia
         productNumber: sheen.productNumber,
         sheen: sheen.label,
         size: selectedSize,
-        unitPriceEur: BM_PRICE_LIST[selectedSize],
+        unitPriceEur: getPriceForSize(selectedSize, line.name),
       });
     } else {
       onVariantChange(null);
@@ -89,21 +89,24 @@ export default function VariantSelector({ productLines, onVariantChange }: Varia
       {/* Size */}
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">Size</label>
-        <div className="grid grid-cols-4 gap-2">
-          {sizes.map((size) => (
-            <button
-              key={size}
-              onClick={() => setSelectedSize(size)}
-              className={`py-2 px-1 rounded-lg text-center transition-all ${
-                selectedSize === size
-                  ? 'bg-[#C9A86C] text-[#2C2C2C] ring-2 ring-[#C9A86C] ring-offset-1'
-                  : 'bg-secondary text-foreground hover:bg-secondary/80'
-              }`}
-            >
-              <div className="text-sm font-medium">{size}</div>
-              <div className="text-[10px] opacity-70">€{BM_PRICE_LIST[size].toFixed(0)}</div>
-            </button>
-          ))}
+        <div className={`grid gap-2 ${sizes.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {sizes.map((size) => {
+            const price = getPriceForSize(size, line?.name);
+            return (
+              <button
+                key={size}
+                onClick={() => setSelectedSize(size)}
+                className={`py-2 px-1 rounded-lg text-center transition-all ${
+                  selectedSize === size
+                    ? 'bg-[#C9A86C] text-[#2C2C2C] ring-2 ring-[#C9A86C] ring-offset-1'
+                    : 'bg-secondary text-foreground hover:bg-secondary/80'
+                }`}
+              >
+                <div className="text-xs font-medium">{SIZE_DISPLAY[size]}</div>
+                <div className="text-[10px] opacity-70 mt-0.5">€{price.toFixed(2)}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -38,7 +38,7 @@ export default function CalculatorCartBridge({
           productLine,
           productNumber,
           sheen,
-          size: container.size as '750ml' | '1L' | '2.5L' | '5L',
+          size: container.size as 'Pint' | 'Quart' | 'Gallon' | '5 Gallon',
           quantity: container.quantity,
           brand: 'BM',
         });

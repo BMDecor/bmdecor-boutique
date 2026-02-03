@@ -287,12 +287,12 @@ const COVERAGE_RATES: Record<string, number> = {
   'Woodluxe Exterior Stain': 8,
 };
 
-// Price list (EUR, IVA incluido)
+// Price list (EUR, IVA incluido) — real BM container sizes
 const PRICE_LIST: Record<string, number> = {
-  '750ml': 28.0,
-  '1L': 36.0,
-  '2.5L': 68.0,
-  '5L': 125.0,
+  'Pint':      20.27,
+  'Quart':     50.72,
+  'Gallon':   149.00,
+  '5 Gallon': 530.00,
 };
 
 // ─────────────────────────────────────────────────────────
@@ -445,26 +445,31 @@ export async function calculatePaintNeeds(
 }
 
 function calculateOptimalContainers(litersNeeded: number): { size: string; quantity: number }[] {
+  // BM container sizes in liters (descending): 5 Gallon, Gallon, Quart, Pint
+  const sizes: { name: string; liters: number }[] = [
+    { name: '5 Gallon', liters: 18.93 },
+    { name: 'Gallon',   liters: 3.79 },
+    { name: 'Quart',    liters: 0.94 },
+  ];
+
   const containers: { size: string; quantity: number }[] = [];
   let remaining = litersNeeded;
 
-  if (remaining >= 5) {
-    const count = Math.floor(remaining / 5);
-    containers.push({ size: '5L', quantity: count });
-    remaining -= count * 5;
+  for (const s of sizes) {
+    if (remaining >= s.liters) {
+      const count = Math.floor(remaining / s.liters);
+      containers.push({ size: s.name, quantity: count });
+      remaining -= count * s.liters;
+    }
   }
 
-  if (remaining >= 2.5) {
-    const count = Math.floor(remaining / 2.5);
-    containers.push({ size: '2.5L', quantity: count });
-    remaining -= count * 2.5;
-  }
-
-  if (remaining > 0) {
-    if (remaining <= 1) {
-      containers.push({ size: '1L', quantity: 1 });
+  // If there's remaining paint, add one more Quart
+  if (remaining > 0.01) {
+    const existing = containers.find((c) => c.size === 'Quart');
+    if (existing) {
+      existing.quantity += 1;
     } else {
-      containers.push({ size: '2.5L', quantity: 1 });
+      containers.push({ size: 'Quart', quantity: 1 });
     }
   }
 
@@ -479,7 +484,7 @@ function calculateCost(containers: { size: string; quantity: number }[]): {
   const breakdown: { size: string; unitPrice: number; quantity: number }[] = [];
 
   for (const container of containers) {
-    const unitPrice = PRICE_LIST[container.size] || 68;
+    const unitPrice = PRICE_LIST[container.size] || 149;
     const subtotal = unitPrice * container.quantity;
     total += subtotal;
     breakdown.push({ size: container.size, unitPrice, quantity: container.quantity });

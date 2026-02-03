@@ -18,7 +18,7 @@ import {
   BatchWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { fromIni } from '@aws-sdk/credential-providers';
-import { BM_PRICE_LIST } from './variant-config';
+import { getPriceForSize } from './variant-config';
 import type {
   CartSessionEntity,
   CartItemEntity,
@@ -115,8 +115,8 @@ export async function addItem(cartId: string, req: AddToCartRequest): Promise<Ca
   const now = new Date().toISOString();
   const ttl = ttl30Days();
 
-  // Server-side price enforcement
-  const unitPrice = BM_PRICE_LIST[req.size as ContainerSize] || 68.00;
+  // Server-side price enforcement (product-line-specific pricing)
+  const unitPrice = getPriceForSize(req.size as ContainerSize, req.productLine);
 
   // Check if item already exists
   const existing = await docClient.send(

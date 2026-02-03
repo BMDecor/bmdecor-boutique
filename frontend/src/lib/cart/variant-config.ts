@@ -2,49 +2,125 @@
  * BM Decoracion — Product Variant Configuration
  *
  * BM Production API (GetProductDetail) does NOT return container sizes
- * or pricing. Sizes defined per-product-line based on BM standard packaging.
- * Prices are Marbella boutique EUR pricing, IVA incluido (21%).
+ * or pricing. Sizes are based on BM's internal dealer SKU suffix convention:
+ *   -001 = Gallon (3.79L)
+ *   -004 = Quart  (0.94L)
+ *   -005 = 5 Gallon (18.93L)
+ *   -006 = Half Pint (0.24L) — color samples only
+ *   -008 = Pint (0.47L)
  *
- * Phase 7b API probe result: Only eStoreProductCode returned, no size/volume fields.
+ * Pricing sourced from benjaminmoore.com.es (EUR, IVA incluido 21%).
  */
 
-export type ContainerSize = '750ml' | '1L' | '2.5L' | '5L';
+/**
+ * Container sizes matching BM's SKU suffix codes.
+ * Display label · SKU suffix · metric equivalent.
+ */
+export type ContainerSize = 'Pint' | 'Quart' | 'Gallon' | '5 Gallon';
+
+/** SKU suffix code per container size (appended to product number for ordering) */
+export const BM_SKU_SUFFIX: Record<ContainerSize, string> = {
+  'Pint':      '008',
+  'Quart':     '004',
+  'Gallon':    '001',
+  '5 Gallon':  '005',
+};
+
+/** Metric equivalent in liters for each container size */
+export const SIZE_LITERS: Record<ContainerSize, number> = {
+  'Pint':      0.47,
+  'Quart':     0.94,
+  'Gallon':    3.79,
+  '5 Gallon': 18.93,
+};
+
+/** Human-readable label with metric equivalent */
+export const SIZE_DISPLAY: Record<ContainerSize, string> = {
+  'Pint':      'Pint (0.47L)',
+  'Quart':     'Quart (0.94L)',
+  'Gallon':    'Gallon (3.79L)',
+  '5 Gallon':  '5 Gal (18.93L)',
+};
+
+/**
+ * EUR pricing per product line + container size (IVA incluido, 21% Spanish VAT).
+ * Sourced from benjaminmoore.com.es — prices vary by product line.
+ */
+export const BM_PRICE_MATRIX: Record<string, Partial<Record<ContainerSize, number>>> = {
+  'Aura Interior': {
+    'Pint':      20.27,
+    'Quart':     61.14,
+    'Gallon':   180.00,
+  },
+  'Aura Exterior': {
+    'Quart':     61.14,
+    'Gallon':   180.00,
+  },
+  'Aura Bath & Spa': {
+    'Quart':     61.14,
+    'Gallon':   180.00,
+  },
+  'Regal Select Interior': {
+    'Quart':     50.72,
+    'Gallon':   149.00,
+    '5 Gallon': 530.00,
+  },
+  'Regal Select Exterior': {
+    'Quart':     50.72,
+    'Gallon':   149.00,
+    '5 Gallon': 530.00,
+  },
+  'ben Interior': {
+    'Quart':     42.91,
+    'Gallon':   103.41,
+    '5 Gallon': 364.28,
+  },
+  'Woodluxe Exterior Stain': {
+    'Quart':     42.91,
+    'Gallon':   103.41,
+    '5 Gallon': 364.28,
+  },
+};
+
+/**
+ * Flat fallback price list (used by dynamo-cart for server-side price enforcement
+ * when a product-line-specific price isn't found).
+ */
+export const BM_PRICE_LIST: Record<ContainerSize, number> = {
+  'Pint':      20.27,
+  'Quart':     50.72,
+  'Gallon':   149.00,
+  '5 Gallon': 530.00,
+};
 
 /** Available container sizes per product line */
 export const BM_SIZE_CONFIG: Record<string, ContainerSize[]> = {
-  'Aura Interior':            ['750ml', '1L', '2.5L', '5L'],
-  'Aura Exterior':            ['1L', '2.5L', '5L'],
-  'Aura Bath & Spa':          ['750ml', '1L', '2.5L'],
-  'Regal Select Interior':    ['750ml', '1L', '2.5L', '5L'],
-  'Regal Select Exterior':    ['1L', '2.5L', '5L'],
-  'ben Interior':             ['750ml', '1L', '2.5L', '5L'],
-  'Woodluxe Exterior Stain':  ['750ml', '2.5L', '5L'],
+  'Aura Interior':            ['Pint', 'Quart', 'Gallon'],
+  'Aura Exterior':            ['Quart', 'Gallon'],
+  'Aura Bath & Spa':          ['Quart', 'Gallon'],
+  'Regal Select Interior':    ['Quart', 'Gallon', '5 Gallon'],
+  'Regal Select Exterior':    ['Quart', 'Gallon', '5 Gallon'],
+  'ben Interior':             ['Quart', 'Gallon', '5 Gallon'],
+  'Woodluxe Exterior Stain':  ['Quart', 'Gallon', '5 Gallon'],
 };
 
-/** EUR pricing per container size (IVA incluido, 21% Spanish VAT) */
-export const BM_PRICE_LIST: Record<ContainerSize, number> = {
-  '750ml': 28.00,
-  '1L':    36.00,
-  '2.5L':  68.00,
-  '5L':   125.00,
-};
-
-/** Size in liters for calculator alignment */
-export const SIZE_LITERS: Record<ContainerSize, number> = {
-  '750ml': 0.75,
-  '1L':    1,
-  '2.5L':  2.5,
-  '5L':    5,
-};
-
-/** Get available sizes for a product line (defaults to standard 4-size set) */
+/** Get available sizes for a product line */
 export function getAvailableSizes(productLine: string): ContainerSize[] {
-  return BM_SIZE_CONFIG[productLine] || ['750ml', '1L', '2.5L', '5L'];
+  return BM_SIZE_CONFIG[productLine] || ['Quart', 'Gallon'];
 }
 
-/** Get price for a container size */
-export function getPriceForSize(size: ContainerSize): number {
+/** Get price for a container size within a product line */
+export function getPriceForSize(size: ContainerSize, productLine?: string): number {
+  if (productLine && BM_PRICE_MATRIX[productLine]) {
+    const linePrice = BM_PRICE_MATRIX[productLine][size];
+    if (linePrice !== undefined) return linePrice;
+  }
   return BM_PRICE_LIST[size];
+}
+
+/** Build full BM SKU from product number + size (e.g., N524-001 for Gallon) */
+export function buildSku(productNumber: string, size: ContainerSize): string {
+  return `${productNumber}-${BM_SKU_SUFFIX[size]}`;
 }
 
 /**
@@ -86,9 +162,12 @@ export function calculateOptimalContainersForLine(
 }
 
 /**
- * Calculate total cost for a set of containers.
+ * Calculate total cost for a set of containers within a product line.
  */
-export function calculateContainerCost(containers: { size: ContainerSize; quantity: number }[]): {
+export function calculateContainerCost(
+  containers: { size: ContainerSize; quantity: number }[],
+  productLine?: string,
+): {
   eur: number;
   breakdown: { size: ContainerSize; unitPrice: number; quantity: number }[];
 } {
@@ -96,7 +175,7 @@ export function calculateContainerCost(containers: { size: ContainerSize; quanti
   const breakdown: { size: ContainerSize; unitPrice: number; quantity: number }[] = [];
 
   for (const c of containers) {
-    const unitPrice = BM_PRICE_LIST[c.size];
+    const unitPrice = getPriceForSize(c.size, productLine);
     total += unitPrice * c.quantity;
     breakdown.push({ size: c.size, unitPrice, quantity: c.quantity });
   }
