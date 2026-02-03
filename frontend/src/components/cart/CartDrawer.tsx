@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sheet,
@@ -115,11 +115,17 @@ function CartItem({ item }: { item: CartItemResponse }) {
 
 export default function CartDrawer() {
   const { items, itemCount, subtotalEur, isDrawerOpen, setDrawerOpen } = useCart();
+  const [mounted, setMounted] = useState(false);
+
+  // Hydration guard — Sheet must only render on client
+  useEffect(() => { setMounted(true); }, []);
 
   // IVA calculation (21% included in prices)
   const ivaRate = 0.21;
   const baseEur = subtotalEur / (1 + ivaRate);
   const ivaEur = subtotalEur - baseEur;
+
+  if (!mounted) return null;
 
   return (
     <Sheet open={isDrawerOpen} onOpenChange={setDrawerOpen}>

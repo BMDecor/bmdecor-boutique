@@ -30,17 +30,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
     subtotalEur: 0,
     items: [],
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Fetch cart on mount
+  // Hydration-safe mount flag
+  useEffect(() => { setMounted(true); }, []);
+
+  // Fetch cart on mount — never blocks initial render
   useEffect(() => {
-    fetch('/api/cart')
-      .then((res) => res.json())
+    if (!mounted) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    setIsLoading(true);
+    fetch('/api/cart', { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Cart fetch ${res.status}`);
+        return res.json();
+      })
       .then((data: CartResponse) => setCart(data))
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
-  }, []);
+      .catch((err) => {
+        if (err.name !== 'AbortError') console.error('Cart load failed:', err);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        setIsLoading(false);
+      });
+
+    return () => { controller.abort(); clearTimeout(timeout); };
+  }, [mounted]);
 
   const addItem = useCallback(async (req: AddToCartRequest) => {
     const res = await fetch('/api/cart', {
