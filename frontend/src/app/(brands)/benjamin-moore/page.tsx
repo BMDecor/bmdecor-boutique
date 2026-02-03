@@ -16,7 +16,13 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import type { CalculatorResult, ComplementaryResult, RoomScene } from '@/lib/api/benjamin-moore';
+import type { SelectedVariant } from '@/lib/cart/types';
 import BMVisualizer from '@/components/BMVisualizer';
+import CartBadge from '@/components/cart/CartBadge';
+import VariantSelector from '@/components/cart/VariantSelector';
+import AddToBagButton from '@/components/cart/AddToBagButton';
+import StickySubtotalBar from '@/components/cart/StickySubtotalBar';
+import CalculatorCartBridge from '@/components/cart/CalculatorCartBridge';
 
 // Types
 interface BMColor {
@@ -407,6 +413,21 @@ function ProfessionalCalculator({ selectedColor }: { selectedColor: BMColor | nu
                   <span>{result.coverageData.voc}</span>
                 </div>
               </div>
+
+              {/* Calculator → Cart Bridge */}
+              {selectedColor && (
+                <CalculatorCartBridge
+                  result={result}
+                  selectedColor={{
+                    name: selectedColor.name,
+                    colorCode: selectedColor.colorCode,
+                    hexCode: selectedColor.hexCode,
+                  }}
+                  productLine={line.name}
+                  productNumber={sheen.productNumber}
+                  sheen={sheen.label}
+                />
+              )}
             </div>
           ) : (
             <div className="text-center py-3 text-white/50 text-sm">
@@ -441,6 +462,7 @@ function TechnicalSpecsDrawer({
   const [isLoadingScenes, setIsLoadingScenes] = useState(false);
   const [isLoadingPalettes, setIsLoadingPalettes] = useState(false);
   const [activeTab, setActiveTab] = useState<'visualizer' | 'colors' | 'specs'>('colors');
+  const [selectedVariant, setSelectedVariant] = useState<SelectedVariant | null>(null);
 
   useEffect(() => {
     if (color && isOpen) {
@@ -704,16 +726,34 @@ function TechnicalSpecsDrawer({
 
           <Separator className="my-4" />
 
-          {/* Pricing & Add to Cart */}
-          <div className="flex items-center justify-between pt-2">
-            <div>
-              <div className="text-2xl font-semibold text-[#C9A86C]">€{color.priceEur.toFixed(2)}</div>
-              <div className="text-xs text-muted-foreground">{color.volume} · IVA Incluido</div>
-            </div>
-            <button className="px-6 py-3 bg-[#2C2C2C] text-white font-medium rounded-lg hover:bg-[#404040] transition-colors">
-              Add to Cart
-            </button>
+          {/* Variant Selector */}
+          <VariantSelector
+            productLines={PRODUCT_LINES}
+            onVariantChange={setSelectedVariant}
+          />
+
+          {/* Add to Bag */}
+          <div className="mt-4">
+            <AddToBagButton
+              item={
+                selectedVariant && color
+                  ? {
+                      colorNumber: color.colorCode,
+                      colorName: color.name,
+                      hexCode: color.hexCode,
+                      productLine: selectedVariant.productLine,
+                      productNumber: selectedVariant.productNumber,
+                      sheen: selectedVariant.sheen,
+                      size: selectedVariant.size,
+                      brand: 'BM',
+                    }
+                  : null
+              }
+            />
           </div>
+
+          {/* Sticky Subtotal */}
+          <StickySubtotalBar variant={selectedVariant} />
         </div>
       </SheetContent>
     </Sheet>
@@ -895,6 +935,7 @@ export default function BenjaminMoorePage() {
               <Badge className="bg-[#C9A86C] text-[#2C2C2C]">
                 {filteredColors.length} Colors
               </Badge>
+              <CartBadge />
             </div>
           </div>
         </div>
