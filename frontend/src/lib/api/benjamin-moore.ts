@@ -364,31 +364,30 @@ export async function discoverComplementaryColors(
 // VISUALIZER (color-tinted room previews)
 // ─────────────────────────────────────────────────────────
 
-const ROOM_SCENES: Omit<RoomScene, 'imageUrl'>[] = [
-  { id: 'living-1', name: 'Modern Living Room', roomType: 'living-room' },
-  { id: 'bedroom-1', name: 'Serene Bedroom', roomType: 'bedroom' },
-  { id: 'kitchen-1', name: 'Contemporary Kitchen', roomType: 'kitchen' },
-  { id: 'bathroom-1', name: 'Spa Bathroom', roomType: 'bathroom' },
-  { id: 'dining-1', name: 'Elegant Dining Room', roomType: 'dining-room' },
-  { id: 'office-1', name: 'Home Office', roomType: 'office' },
+/**
+ * Marbella Room Set — local architectural SVG scenes.
+ *
+ * BM Photo/RenderRoom API returned 404 across 30+ endpoint probes on both
+ * Stage and Production. BM's "Color a Room" is a browser-only compositing
+ * tool with no server-side API. These local SVGs are designed with white/light
+ * walls so CSS mix-blend-mode: multiply tints them with the selected color.
+ *
+ * To upgrade: replace SVG paths with S3-hosted photography URLs.
+ */
+const ROOM_SCENES: RoomScene[] = [
+  { id: 'living-1', name: 'Modern Living Room', roomType: 'living-room', imageUrl: '/rooms/living-room.svg' },
+  { id: 'bedroom-1', name: 'Serene Bedroom', roomType: 'bedroom', imageUrl: '/rooms/bedroom.svg' },
+  { id: 'kitchen-1', name: 'Contemporary Kitchen', roomType: 'kitchen', imageUrl: '/rooms/kitchen.svg' },
+  { id: 'bathroom-1', name: 'Spa Bathroom', roomType: 'bathroom', imageUrl: '/rooms/bathroom.svg' },
+  { id: 'dining-1', name: 'Elegant Dining Room', roomType: 'dining-room', imageUrl: '/rooms/dining-room.svg' },
+  { id: 'office-1', name: 'Home Office', roomType: 'office', imageUrl: '/rooms/office.svg' },
 ];
 
-/**
- * Room scene visualizer.
- * BM Photo/RenderRoom API returned 404 in all probes — no server-side room
- * rendering endpoint available. Uses color-tinted placeholders instead.
- */
 export async function getVisualizerScenes(
   _colorNumber: string,
-  hexCode: string,
+  _hexCode: string,
 ): Promise<RoomScene[]> {
-  const color = hexCode.replace('#', '');
-  return ROOM_SCENES.map((scene) => ({
-    ...scene,
-    imageUrl: `https://placehold.co/600x400/${color}/ffffff?text=${encodeURIComponent(
-      scene.name
-    )}`,
-  }));
+  return ROOM_SCENES;
 }
 
 // ─────────────────────────────────────────────────────────

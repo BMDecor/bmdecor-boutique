@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" fill="none">
+  <!-- Wall -->
+  <rect width="600" height="400" fill="#FAFAFA"/>
+  <!-- Floor -->
+  <rect y="320" width="600" height="80" fill="#DDD6CC"/>
+  <line x1="0" y1="320" x2="600" y2="320" stroke="#D0CAC0" stroke-width="1.5"/>
+  <!-- Hardwood floor lines -->
+  <line x1="0" y1="345" x2="600" y2="345" stroke="#D5CFC5" stroke-width="0.4"/>
+  <line x1="0" y1="370" x2="600" y2="370" stroke="#D5CFC5" stroke-width="0.4"/>
+  <!-- Crown molding -->
+  <rect y="16" width="600" height="8" fill="#F0EDE8" rx="1"/>
+  <!-- Baseboard -->
+  <rect y="312" width="600" height="10" fill="#EDEBE6" rx="1"/>
+  <!-- Window -->
+  <rect x="380" y="50" width="160" height="190" rx="3" stroke="#C8C2B8" stroke-width="2" fill="#F0F4F8"/>
+  <line x1="460" y1="50" x2="460" y2="240" stroke="#C8C2B8" stroke-width="1.5"/>
+  <line x1="380" y1="145" x2="540" y2="145" stroke="#C8C2B8" stroke-width="1.5"/>
+  <!-- Curtains -->
+  <rect x="360" y="38" width="20" height="220" rx="4" fill="#E5E0D8"/>
+  <rect x="540" y="38" width="20" height="220" rx="4" fill="#E5E0D8"/>
+  <rect x="358" y="34" width="206" height="8" rx="2" fill="#D8D2C8"/>
+  <!-- Chandelier -->
+  <line x1="240" y1="0" x2="240" y2="50" stroke="#C0B8AE" stroke-width="1"/>
+  <ellipse cx="240" cy="65" rx="40" ry="18" fill="none" stroke="#C8C0B6" stroke-width="1.5"/>
+  <line x1="210" y1="60" x2="210" y2="72" stroke="#D0C8BE" stroke-width="1"/>
+  <line x1="225" y1="56" x2="225" y2="68" stroke="#D0C8BE" stroke-width="1"/>
+  <line x1="240" y1="54" x2="240" y2="66" stroke="#D0C8BE" stroke-width="1"/>
+  <line x1="255" y1="56" x2="255" y2="68" stroke="#D0C8BE" stroke-width="1"/>
+  <line x1="270" y1="60" x2="270" y2="72" stroke="#D0C8BE" stroke-width="1"/>
+  <circle cx="210" cy="58" r="3" fill="#F0E8D8"/>
+  <circle cx="225" cy="54" r="3" fill="#F0E8D8"/>
+  <circle cx="240" cy="52" r="3" fill="#F0E8D8"/>
+  <circle cx="255" cy="54" r="3" fill="#F0E8D8"/>
+  <circle cx="270" cy="58" r="3" fill="#F0E8D8"/>
+  <!-- Table -->
+  <ellipse cx="240" cy="260" rx="140" ry="30" fill="#B8B0A4"/>
+  <ellipse cx="240" cy="256" rx="136" ry="28" fill="#C0B8AC"/>
+  <!-- Table legs -->
+  <rect x="160" y="270" width="6" height="55" fill="#A8A098" transform="rotate(-5 163 270)"/>
+  <rect x="314" y="270" width="6" height="55" fill="#A8A098" transform="rotate(5 317 270)"/>
+  <!-- Place settings -->
+  <ellipse cx="160" cy="252" rx="18" ry="6" fill="#E8E4DE" stroke="#D8D2CA" stroke-width="0.5"/>
+  <ellipse cx="240" cy="248" rx="18" ry="6" fill="#E8E4DE" stroke="#D8D2CA" stroke-width="0.5"/>
+  <ellipse cx="320" cy="252" rx="18" ry="6" fill="#E8E4DE" stroke="#D8D2CA" stroke-width="0.5"/>
+  <!-- Centerpiece / vase -->
+  <rect x="232" y="230" width="16" height="18" rx="3" fill="#C0B8AE"/>
+  <ellipse cx="240" cy="224" rx="10" ry="8" fill="#C0CCA8"/>
+  <!-- Chairs -->
+  <rect x="120" y="275" width="40" height="6" rx="2" fill="#A8A098"/>
+  <rect x="126" y="281" width="4" height="38" fill="#A09890"/>
+  <rect x="150" y="281" width="4" height="38" fill="#A09890"/>
+  <rect x="126" y="235" width="30" height="42" rx="4" fill="#B0A8A0"/>
+  <rect x="320" y="275" width="40" height="6" rx="2" fill="#A8A098"/>
+  <rect x="326" y="281" width="4" height="38" fill="#A09890"/>
+  <rect x="350" y="281" width="4" height="38" fill="#A09890"/>
+  <rect x="324" y="235" width="30" height="42" rx="4" fill="#B0A8A0"/>
+  <!-- Sideboard / buffet -->
+  <rect x="20" y="210" width="80" height="110" rx="4" fill="#B0A8A0"/>
+  <rect x="25" y="216" width="32" height="98" rx="2" fill="#BAB2A8" stroke="#A8A098" stroke-width="0.5"/>
+  <rect x="63" y="216" width="32" height="98" rx="2" fill="#BAB2A8" stroke="#A8A098" stroke-width="0.5"/>
+  <!-- Sideboard handles -->
+  <rect x="54" y="258" width="2" height="14" rx="1" fill="#989088"/>
+  <rect x="66" y="258" width="2" height="14" rx="1" fill="#989088"/>
+  <!-- Art on wall -->
+  <rect x="30" y="70" width="60" height="100" rx="2" stroke="#C0B8AE" stroke-width="1.5" fill="#EAE6E0"/>
+  <rect x="36" y="76" width="48" height="88" rx="1" fill="#E0DCD6"/>
+  <!-- Rug under table -->
+  <ellipse cx="240" cy="310" rx="160" ry="25" fill="#D0C8BE" opacity="0.4"/>
+</svg>

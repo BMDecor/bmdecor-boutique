@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" fill="none">
+  <!-- Wall -->
+  <rect width="600" height="400" fill="#FAFAFA"/>
+  <!-- Floor -->
+  <rect y="330" width="600" height="70" fill="#E5E0D8"/>
+  <line x1="0" y1="330" x2="600" y2="330" stroke="#D0CAC0" stroke-width="1.5"/>
+  <!-- Floor tile grid -->
+  <line x1="75" y1="330" x2="75" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="150" y1="330" x2="150" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="225" y1="330" x2="225" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="300" y1="330" x2="300" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="375" y1="330" x2="375" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="450" y1="330" x2="450" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="525" y1="330" x2="525" y2="400" stroke="#DAD4CC" stroke-width="0.4"/>
+  <line x1="0" y1="365" x2="600" y2="365" stroke="#DAD4CC" stroke-width="0.4"/>
+  <!-- Wainscoting lower wall -->
+  <rect y="230" width="600" height="100" fill="#F2F0EC"/>
+  <line x1="0" y1="230" x2="600" y2="230" stroke="#E0DCD6" stroke-width="1"/>
+  <!-- Wainscoting panels -->
+  <rect x="20" y="240" width="80" height="82" rx="2" stroke="#E5E2DC" stroke-width="1" fill="none"/>
+  <rect x="110" y="240" width="80" height="82" rx="2" stroke="#E5E2DC" stroke-width="1" fill="none"/>
+  <rect x="410" y="240" width="80" height="82" rx="2" stroke="#E5E2DC" stroke-width="1" fill="none"/>
+  <rect x="500" y="240" width="80" height="82" rx="2" stroke="#E5E2DC" stroke-width="1" fill="none"/>
+  <!-- Vanity -->
+  <rect x="30" y="250" width="180" height="80" rx="4" fill="#C8C0B6"/>
+  <rect x="35" y="256" width="78" height="68" rx="3" fill="#BEB6AC" stroke="#B0A8A0" stroke-width="0.5"/>
+  <rect x="127" y="256" width="78" height="68" rx="3" fill="#BEB6AC" stroke="#B0A8A0" stroke-width="0.5"/>
+  <!-- Vanity handles -->
+  <rect x="70" y="284" width="12" height="2" rx="1" fill="#A09890"/>
+  <rect x="162" y="284" width="12" height="2" rx="1" fill="#A09890"/>
+  <!-- Countertop -->
+  <rect x="26" y="244" width="188" height="10" rx="2" fill="#E0DCD6"/>
+  <!-- Sink -->
+  <ellipse cx="120" cy="247" rx="28" ry="5" fill="#D0CAC2"/>
+  <!-- Faucet -->
+  <rect x="117" y="232" width="6" height="14" rx="2" fill="#B8B0A8"/>
+  <path d="M114 232 C114 224 126 224 126 232" stroke="#B8B0A8" stroke-width="2.5" fill="none"/>
+  <!-- Mirror -->
+  <rect x="50" y="60" width="140" height="160" rx="6" stroke="#C8C2BA" stroke-width="2" fill="#F0F2F5"/>
+  <rect x="56" y="66" width="128" height="148" rx="4" fill="#F5F7FA"/>
+  <!-- Bathtub / Shower -->
+  <rect x="380" y="140" width="200" height="190" rx="8" fill="#E8E4DE" stroke="#D0C8C0" stroke-width="1.5"/>
+  <rect x="388" y="148" width="184" height="174" rx="6" fill="#F0EEEA"/>
+  <!-- Shower head -->
+  <rect x="478" y="40" width="4" height="100" fill="#C0B8B0"/>
+  <circle cx="480" cy="140" r="14" fill="#D8D2CA" stroke="#C8C0B8" stroke-width="1"/>
+  <!-- Shower dots -->
+  <circle cx="474" cy="140" r="1" fill="#C0B8B0"/>
+  <circle cx="480" cy="134" r="1" fill="#C0B8B0"/>
+  <circle cx="486" cy="140" r="1" fill="#C0B8B0"/>
+  <circle cx="480" cy="146" r="1" fill="#C0B8B0"/>
+  <!-- Shower controls -->
+  <circle cx="420" cy="220" r="6" stroke="#B8B0A8" stroke-width="1.5" fill="#D0C8C0"/>
+  <circle cx="420" cy="250" r="4" stroke="#B8B0A8" stroke-width="1" fill="#D0C8C0"/>
+  <!-- Towel rack -->
+  <rect x="270" y="180" width="60" height="3" rx="1" fill="#B8B0A8"/>
+  <rect x="272" y="183" width="56" height="80" rx="2" fill="#E0DCD6"/>
+  <rect x="272" y="183" width="56" height="40" rx="2" fill="#E8E4DE"/>
+  <!-- Wall sconces -->
+  <rect x="38" y="110" width="4" height="20" fill="#C0B8B0"/>
+  <ellipse cx="40" cy="106" rx="8" ry="6" fill="#E8E2DA"/>
+  <rect x="198" y="110" width="4" height="20" fill="#C0B8B0"/>
+  <ellipse cx="200" cy="106" rx="8" ry="6" fill="#E8E2DA"/>
+  <!-- Plant -->
+  <rect x="230" y="290" width="16" height="14" rx="3" fill="#B0A8A0"/>
+  <ellipse cx="238" cy="282" rx="12" ry="12" fill="#B8C4A8"/>
+</svg>
