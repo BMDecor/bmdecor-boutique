@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { CartProvider } from "@/lib/cart/cart-context";
-import CartDrawer from "@/components/cart/CartDrawer";
+import { CartDrawerLazy } from "@/components/cart/CartDrawerLazy";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,7 +38,7 @@ export default function RootLayout({
       >
         <CartProvider>
           {children}
-          <CartDrawer />
+          <CartDrawerLazy />
         </CartProvider>
       </body>
     </html>
