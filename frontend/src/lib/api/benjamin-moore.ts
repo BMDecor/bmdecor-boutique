@@ -15,6 +15,7 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { fromIni } from '@aws-sdk/credential-providers';
+import { apiConfig } from '@/config/api-config';
 
 // ─────────────────────────────────────────────────────────
 // TYPES
@@ -181,9 +182,7 @@ async function getSecrets(): Promise<BMSecrets> {
 }
 
 function buildUrl(endpoint: string, apiKey: string, params: Record<string, string> = {}): string {
-  const base = `https://api.benjaminmoore.com/api/${apiKey}/${endpoint}`;
-  const qs = new URLSearchParams(params).toString();
-  return qs ? `${base}?${qs}` : base;
+  return apiConfig.buildBmUrl(apiKey, endpoint, params);
 }
 
 // ─────────────────────────────────────────────────────────

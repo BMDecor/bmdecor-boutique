@@ -16,6 +16,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import type { CalculatorResult, ComplementaryResult, RoomScene } from '@/lib/api/benjamin-moore';
+import BMVisualizer from '@/components/BMVisualizer';
 
 // Types
 interface BMColor {
@@ -426,10 +427,12 @@ function TechnicalSpecsDrawer({
   color,
   isOpen,
   onClose,
+  allColors,
 }: {
   color: BMColor | null;
   isOpen: boolean;
   onClose: () => void;
+  allColors: BMColor[];
 }) {
   const [roomScenes, setRoomScenes] = useState<RoomScene[]>([]);
   const [palettes, setPalettes] = useState<ComplementaryResult[]>([]);
@@ -567,9 +570,49 @@ function TechnicalSpecsDrawer({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-muted-foreground text-sm">
-                    No palette data available for this color.
-                  </div>
+                  /* ─── Palette Fail-Safe: Collection Fallback ─── */
+                  (() => {
+                    const siblings = allColors
+                      .filter(
+                        (c) =>
+                          c.collection === color.collection &&
+                          c.colorCode !== color.colorCode
+                      )
+                      .slice(0, 4);
+
+                    return siblings.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="p-3 bg-secondary rounded-lg">
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                            More from {cleanCollectionName(color.collection || 'Collection')}
+                          </h4>
+                          <div className="flex gap-2">
+                            {siblings.map((c) => (
+                              <div key={c.colorCode} className="flex-1 min-w-0">
+                                <div
+                                  className="aspect-square rounded-lg shadow-sm mb-1"
+                                  style={{ backgroundColor: c.hexCode }}
+                                />
+                                <div className="text-[10px] font-medium text-foreground truncate">
+                                  {c.name}
+                                </div>
+                                <div className="text-[10px] font-mono text-muted-foreground">
+                                  {c.colorCode}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Local collection fallback — BM Discovery API returned no palettes
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        No palette data available for this color.
+                      </div>
+                    );
+                  })()
                 )}
                 <p className="text-xs text-muted-foreground">
                   Curated by Benjamin Moore via GetColorDetail API
@@ -578,49 +621,17 @@ function TechnicalSpecsDrawer({
             )}
 
             {activeTab === 'visualizer' && (
-              <motion.div
-                key="visualizer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  <h3 className="text-sm font-semibold">Room Preview</h3>
-                </div>
-
-                {isLoadingScenes ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="aspect-video bg-secondary rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    {roomScenes.slice(0, 6).map((scene) => (
-                      <div key={scene.id} className="relative group">
-                        <div
-                          className="aspect-video rounded-lg overflow-hidden flex items-center justify-center"
-                          style={{ backgroundColor: color.hexCode }}
-                        >
-                          <span
-                            className="text-xs font-medium px-2 text-center"
-                            style={{ color: getTextColor(color.hexCode) }}
-                          >
-                            {scene.name}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Color-tinted previews — BM Photo API not available
-                </p>
-              </motion.div>
+              <BMVisualizer
+                color={{
+                  name: color.name,
+                  colorCode: color.colorCode,
+                  hexCode: color.hexCode,
+                }}
+                roomScenes={roomScenes}
+                isLoading={isLoadingScenes}
+                lrv={lrv}
+                rgb={rgb}
+              />
             )}
 
             {activeTab === 'specs' && (
@@ -1049,6 +1060,7 @@ export default function BenjaminMoorePage() {
         color={selectedColor}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        allColors={colors}
       />
 
       {/* Footer */}
