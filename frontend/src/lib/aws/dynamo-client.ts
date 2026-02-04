@@ -1,15 +1,17 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-const REGION = process.env.AWS_REGION || 'eu-west-1';
+// Use BMDECOR_-prefixed env vars to avoid Vercel/Lambda runtime overrides,
+// then fall back to standard AWS_ names for local dev.
+const REGION = process.env.BMDECOR_AWS_REGION || process.env.AWS_REGION || 'eu-west-1';
 
 function getCredentials() {
-  // Vercel / production: use environment variables
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    return {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    };
+  // Vercel / production: use BMDECOR_-prefixed environment variables
+  const accessKeyId = process.env.BMDECOR_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.BMDECOR_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+  if (accessKeyId && secretAccessKey) {
+    return { accessKeyId, secretAccessKey };
   }
 
   // Local development: use AWS profile
@@ -45,4 +47,4 @@ export const docClient = DynamoDBDocumentClient.from(ddbClient, {
   marshallOptions: { removeUndefinedValues: true },
 });
 
-export const TABLE_NAME = process.env.DYNAMODB_TABLE || 'BmDecorProducts';
+export const TABLE_NAME = process.env.BMDECOR_DYNAMODB_TABLE || process.env.DYNAMODB_TABLE || 'BmDecorProducts';
