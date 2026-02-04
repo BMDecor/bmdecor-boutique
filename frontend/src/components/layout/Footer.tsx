@@ -73,6 +73,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/blog" className="hover:text-[#C9A86C] transition-colors">
+                  Journal
+                </Link>
+              </li>
+              <li>
                 <Link href="/my-studio" className="hover:text-[#C9A86C] transition-colors">
                   My Design Studio
                 </Link>
@@ -102,6 +107,11 @@ export default function Footer() {
               <li>
                 <Link href="/contact" className="hover:text-[#C9A86C] transition-colors">
                   Contact Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/faqs" className="hover:text-[#C9A86C] transition-colors">
+                  FAQs
                 </Link>
               </li>
               <li>
