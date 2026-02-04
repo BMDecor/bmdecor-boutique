@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
 export const metadata = {
@@ -11,8 +10,6 @@ export const metadata = {
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
-      <Navbar />
-
       {/* Hero — Split Screen */}
       <section className="grid lg:grid-cols-2 min-h-[70vh]">
         {/* Left — Editorial Image */}

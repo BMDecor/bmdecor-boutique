@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +24,6 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
-      <Navbar />
-
       {/* Header */}
       <section className="max-w-7xl mx-auto px-8 lg:px-16 pt-16 pb-8">
         <p className="text-[#C9A86C] text-sm tracking-[0.2em] uppercase mb-4">Get In Touch</p>

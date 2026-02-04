@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
 export const metadata = {
@@ -58,8 +57,6 @@ const SERVICES = [
 export default function ServicesPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
-      <Navbar />
-
       {/* Header */}
       <section className="max-w-7xl mx-auto px-8 lg:px-16 pt-16 pb-8">
         <p className="text-[#C9A86C] text-sm tracking-[0.2em] uppercase mb-4">What We Offer</p>

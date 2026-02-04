@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
 export const metadata = {
@@ -10,8 +9,6 @@ export const metadata = {
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
-      <Navbar />
-
       <div className="max-w-3xl mx-auto px-6 py-16">
         <Link href="/" className="text-sm text-[#C9A86C] hover:underline mb-8 inline-block">
           &larr; Back to BM Decoración
