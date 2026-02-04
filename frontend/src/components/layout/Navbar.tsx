@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import { Search, User, Menu, ChevronDown } from 'lucide-react';
 import CartBadge from '@/components/cart/CartBadge';
+import AuthDialog from '@/components/auth/AuthDialog';
+import { useAuth } from '@/lib/auth/auth-context';
 import {
   Sheet,
   SheetContent,
@@ -27,12 +29,60 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
+  return (
+    <Suspense fallback={<NavbarShell />}>
+      <NavbarInner />
+    </Suspense>
+  );
+}
+
+function NavbarShell() {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-16 items-center px-4 md:px-6">
+        <Link href="/" className="mr-6 shrink-0">
+          <span className="font-[family-name:var(--font-playfair)] text-xl font-semibold text-[#2C2C2C] tracking-tight">
+            BM Decoración
+          </span>
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+function NavbarInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [brandsOpen, setBrandsOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const brandsRef = useRef<HTMLDivElement>(null);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+
+  // Auto-open auth dialog when ?authRequired is present
+  const authRequired = searchParams.get('authRequired');
+  useEffect(() => {
+    if (authRequired && !isAuthenticated) {
+      setAuthOpen(true);
+    }
+  }, [authRequired, isAuthenticated]);
+
+  // After sign-in, redirect to the intended destination
+  useEffect(() => {
+    if (isAuthenticated && authRequired) {
+      setAuthOpen(false);
+      if (authRequired === 'admin' && isAdmin) {
+        router.replace('/admin');
+      } else if (authRequired === 'studio') {
+        router.replace('/my-studio');
+      } else {
+        router.replace(pathname);
+      }
+    }
+  }, [isAuthenticated, isAdmin, authRequired, pathname, router]);
 
   // Close brands dropdown on outside click
   useEffect(() => {
@@ -117,11 +167,23 @@ export default function Navbar() {
           </Button>
 
           {/* Account */}
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" asChild>
-            <Link href="/sign-in" aria-label="Account">
+          {isAuthenticated ? (
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" asChild>
+              <Link href="/my-studio" aria-label="My Studio">
+                <User className="h-5 w-5" />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setAuthOpen(true)}
+              aria-label="Sign in"
+            >
               <User className="h-5 w-5" />
-            </Link>
-          </Button>
+            </Button>
+          )}
 
           {/* Cart */}
           <div className="[&_button]:text-muted-foreground [&_button]:hover:text-foreground">
@@ -185,15 +247,29 @@ export default function Navbar() {
               <div className="h-px bg-[#E8E2D9] my-3" />
 
               <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Account</p>
-              <SheetClose asChild>
-                <Link href="/sign-in" className="py-2.5 text-sm text-[#2C2C2C]/70 hover:text-[#2C2C2C]">
-                  My Account
-                </Link>
-              </SheetClose>
+              {isAuthenticated ? (
+                <SheetClose asChild>
+                  <Link href="/my-studio" className="py-2.5 text-sm text-[#2C2C2C]/70 hover:text-[#2C2C2C]">
+                    My Studio
+                  </Link>
+                </SheetClose>
+              ) : (
+                <SheetClose asChild>
+                  <button
+                    onClick={() => setAuthOpen(true)}
+                    className="py-2.5 text-sm text-[#2C2C2C]/70 hover:text-[#2C2C2C] text-left"
+                  >
+                    Sign In
+                  </button>
+                </SheetClose>
+              )}
             </div>
           </SheetContent>
         </Sheet>
       )}
+
+      {/* Auth Dialog */}
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </header>
   );
 }
