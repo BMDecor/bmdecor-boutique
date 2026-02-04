@@ -1,6 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as path from 'path';
 import { Construct } from 'constructs';
 
 /**
@@ -86,6 +90,27 @@ export class InfrastructureStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       customAttributes: {
         display_name: new cognito.StringAttribute({ mutable: true }),
+        consent_timestamp: new cognito.StringAttribute({ mutable: true }),
+        consent_version: new cognito.StringAttribute({ mutable: true }),
+      },
+      userVerification: {
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+        emailSubject: 'BM Decoracion — Verify Your Email',
+        emailBody: [
+          '<div style="background-color:#1a1a1a;padding:40px 20px;font-family:Georgia,serif;">',
+          '<div style="max-width:480px;margin:0 auto;text-align:center;">',
+          '<h1 style="color:#c5a065;font-size:28px;margin-bottom:8px;">BM Decoraci&oacute;n</h1>',
+          '<p style="color:#e0e0e0;font-size:16px;margin-bottom:24px;">Welcome to BM Decoracion</p>',
+          '<p style="color:#cccccc;font-size:14px;margin-bottom:16px;">Your secure access code is:</p>',
+          '<div style="background-color:#2a2a2a;border:2px solid #c5a065;border-radius:8px;padding:20px;margin:0 auto 24px;display:inline-block;">',
+          '<span style="color:#c5a065;font-size:36px;letter-spacing:8px;font-family:monospace;font-weight:bold;">{####}</span>',
+          '</div>',
+          '<p style="color:#999999;font-size:12px;">This code expires in 10 minutes.</p>',
+          '<hr style="border:none;border-top:1px solid #333;margin:24px 0;" />',
+          '<p style="color:#666666;font-size:11px;">BM Decoraci&oacute;n &middot; Calle Dubl&iacute;n 21, Marbella, Spain</p>',
+          '<p style="color:#666666;font-size:11px;"><a href="https://bmdecor.es/privacy" style="color:#c5a065;">Privacy Policy</a></p>',
+          '</div></div>',
+        ].join(''),
       },
     });
 
@@ -113,6 +138,39 @@ export class InfrastructureStack extends cdk.Stack {
     }
 
     // ─────────────────────────────────────────────────────
+    // Post-Confirmation Lambda (Welcome Email via SES)
+    // ─────────────────────────────────────────────────────
+
+    const postConfirmationFn = new NodejsFunction(this, 'PostConfirmationFn', {
+      functionName: 'BmDecor-PostConfirmation',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.join(__dirname, '../../backend/functions/auth/post-confirmation/index.ts'),
+      handler: 'handler',
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        SENDER_EMAIL: 'jason.herren@ionyxsystems.com',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+      },
+    });
+
+    postConfirmationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: ['*'],
+      })
+    );
+
+    this.userPool.addTrigger(
+      cognito.UserPoolOperation.POST_CONFIRMATION,
+      postConfirmationFn
+    );
+
+    // ─────────────────────────────────────────────────────
     // Stack Outputs
     // ─────────────────────────────────────────────────────
 
@@ -134,6 +192,11 @@ export class InfrastructureStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolClientId', {
       value: this.userPoolClient.userPoolClientId,
       description: 'Cognito User Pool Client ID',
+    });
+
+    new cdk.CfnOutput(this, 'PostConfirmationFnArn', {
+      value: postConfirmationFn.functionArn,
+      description: 'Post-confirmation Lambda ARN for welcome emails',
     });
   }
 }

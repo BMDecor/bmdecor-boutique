@@ -25,12 +25,16 @@ function extractUserFromSession(session: CognitoUserSession, email: string): Aut
 export async function signUp(
   email: string,
   password: string,
-  displayName: string
+  displayName: string,
+  consentTimestamp?: string,
+  consentVersion?: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const attrs = [
       new CognitoUserAttribute({ Name: 'email', Value: email }),
       new CognitoUserAttribute({ Name: 'custom:display_name', Value: displayName }),
+      ...(consentTimestamp ? [new CognitoUserAttribute({ Name: 'custom:consent_timestamp', Value: consentTimestamp })] : []),
+      ...(consentVersion ? [new CognitoUserAttribute({ Name: 'custom:consent_version', Value: consentVersion })] : []),
     ];
 
     userPool.signUp(email, password, attrs, [], (err) => {

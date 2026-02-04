@@ -9,7 +9,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string, consentTimestamp?: string, consentVersion?: string) => Promise<void>;
   confirmSignUp: (email: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -45,9 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(authUser);
   }, []);
 
-  const handleSignUp = useCallback(async (email: string, password: string, displayName: string) => {
+  const handleSignUp = useCallback(async (email: string, password: string, displayName: string, consentTimestamp?: string, consentVersion?: string) => {
     const { signUp } = await import('./cognito-client');
-    await signUp(email, password, displayName);
+    await signUp(email, password, displayName, consentTimestamp, consentVersion);
   }, []);
 
   const handleConfirmSignUp = useCallback(async (email: string, code: string) => {

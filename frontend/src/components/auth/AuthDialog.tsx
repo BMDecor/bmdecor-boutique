@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/lib/auth/auth-context';
 
 type Mode = 'signIn' | 'signUp' | 'confirm';
@@ -30,11 +31,13 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gdprConsent, setGdprConsent] = useState(false);
 
   const reset = () => {
     setError('');
     setPassword('');
     setCode('');
+    setGdprConsent(false);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -58,7 +61,7 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     setError('');
     setIsSubmitting(true);
     try {
-      await signUp(email, password, displayName || email.split('@')[0]);
+      await signUp(email, password, displayName || email.split('@')[0], new Date().toISOString(), 'v1.0');
       setMode('confirm');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign up failed');
@@ -180,10 +183,21 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     required
                   />
                 </div>
+                <div className="flex items-start space-x-3 pt-1">
+                  <Checkbox
+                    id="gdpr-consent"
+                    checked={gdprConsent}
+                    onCheckedChange={(checked) => setGdprConsent(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <Label htmlFor="gdpr-consent" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                    I agree to the Terms of Service and Privacy Policy, and consent to the processing of my data in accordance with GDPR.
+                  </Label>
+                </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !gdprConsent}
                   className="w-full bg-[#C9A86C] text-[#2C2C2C] hover:bg-[#D4B896]"
                 >
                   {isSubmitting ? 'Creating account...' : 'Create Account'}
