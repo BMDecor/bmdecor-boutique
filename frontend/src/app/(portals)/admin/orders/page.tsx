@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -33,6 +34,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -186,7 +188,8 @@ export default function OrdersPage() {
               {orders.map((order) => (
                 <TableRow
                   key={order.orderId}
-                  className="border-b border-[#2C2C2C]/5 hover:bg-[#FAF8F5]/50"
+                  className="border-b border-[#2C2C2C]/5 hover:bg-[#FAF8F5]/50 cursor-pointer"
+                  onClick={() => router.push(`/admin/orders/${order.orderId}?userId=${order.userId}`)}
                 >
                   <TableCell className="text-xs font-mono text-[#2C2C2C]/60">
                     {order.orderId.slice(0, 12)}...
@@ -200,7 +203,7 @@ export default function OrdersPage() {
                   <TableCell className="text-sm font-medium text-[#2C2C2C]">
                     {(order.subtotalEur ?? 0).toFixed(2)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <select
                       value={order.status}
                       onChange={(e) => updateStatus(order, e.target.value)}
