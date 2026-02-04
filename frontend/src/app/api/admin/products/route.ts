@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { ScanCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
-import { verifyIdToken, extractGroups } from '@/lib/auth/jwt-verify';
-
-async function requireAdmin(request: NextRequest) {
-  const token = request.cookies.get('bmdecor_id_token')?.value;
-  if (!token) throw new Error('Not authenticated');
-  const payload = await verifyIdToken(token);
-  if (!extractGroups(payload).includes('Admin')) throw new Error('Not admin');
-  return payload;
-}
+import { requireAdmin } from '@/lib/api/require-admin';
+import { ulid } from 'ulid';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,6 +35,8 @@ export async function GET(request: NextRequest) {
           finishType: item.finishType,
           volume: item.volume,
           collection: item.collection,
+          description: item.description,
+          coverageRate: item.coverageRate,
         });
       }
       lastKey = result.LastEvaluatedKey;
@@ -51,5 +46,48 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Admin products GET:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    await requireAdmin(request);
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const id = body.id || ulid();
+    const now = new Date().toISOString();
+
+    await docClient.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `PRODUCT#${id}`,
+        SK: 'METADATA',
+        entityType: 'PRODUCT',
+        id,
+        brand: body.brand,
+        name: body.name,
+        colorCode: body.colorCode || '',
+        hexCode: body.hexCode || '#CCCCCC',
+        priceEur: body.priceEur ?? 0,
+        finishType: body.finishType || '',
+        volume: body.volume || '',
+        collection: body.collection || '',
+        productType: body.productType || 'paint',
+        description: body.description || '',
+        coverageRate: body.coverageRate ?? null,
+        inStock: body.inStock ?? true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    }));
+
+    return NextResponse.json({ success: true, id });
+  } catch (error) {
+    console.error('Admin products POST:', error);
+    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }

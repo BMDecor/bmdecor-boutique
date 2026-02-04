@@ -6,9 +6,10 @@ import { useAuth } from '@/lib/auth/auth-context';
 
 const navLinks = [
   { href: '/admin', label: 'Dashboard', icon: '□' },
+  { href: '/admin/products', label: 'Products', icon: '◈' },
+  { href: '/admin/orders', label: 'Orders', icon: '▤' },
   { href: '/admin/pricing', label: 'Pricing', icon: '€' },
   { href: '/admin/inventory', label: 'Inventory', icon: '▦' },
-  { href: '/admin/orders', label: 'Orders', icon: '▤' },
   { href: '/admin/exports', label: 'Exports', icon: '↓' },
 ];
 
@@ -47,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (
