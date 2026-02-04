@@ -1,11 +1,20 @@
 import Link from 'next/link';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+
+export const metadata = {
+  title: 'Privacy Policy — BM Decoración',
+  description: 'How BM Decoración processes your personal data under GDPR and LOPDGDD.',
+};
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
+      <Navbar />
+
       <div className="max-w-3xl mx-auto px-6 py-16">
         <Link href="/" className="text-sm text-[#C9A86C] hover:underline mb-8 inline-block">
-          &larr; Back to BM Decoracion
+          &larr; Back to BM Decoración
         </Link>
 
         <h1 className="font-[family-name:var(--font-playfair)] text-4xl text-[#2C2C2C] mb-2">
@@ -37,7 +46,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">3. Purpose & Legal Basis</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">3. Purpose &amp; Legal Basis</h2>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Contract performance (Art. 6(1)(b)):</strong> Processing orders, managing your account, providing our services</li>
               <li><strong>Legal obligation (Art. 6(1)(c)):</strong> Tax records retention as required by Spanish fiscal law</li>
@@ -105,6 +114,8 @@ export default function PrivacyPolicyPage() {
           BM Decoraci&oacute;n &middot; Calle Dubl&iacute;n 21, Marbella &middot; &copy; 2026 bmdecor.es
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

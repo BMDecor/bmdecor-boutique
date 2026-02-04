@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import CartBadge from '@/components/cart/CartBadge';
 import UserMenu from '@/components/auth/UserMenu';
+import Footer from '@/components/layout/Footer';
 
 // Brand House Configuration with Unsplash imagery
 const BRAND_HOUSES = [
@@ -258,19 +259,7 @@ export default function GrandLobby() {
         </div>
       </main>
 
-      {/* Minimalist Footer */}
-      <footer className="py-8 border-t border-[#E8E2D9]">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-[#666666]">
-            <div className="flex items-center gap-6">
-              <span>Calle Dublín 21, Marbella</span>
-              <span className="hidden md:inline">·</span>
-              <span>IVA Incluido</span>
-            </div>
-            <span>© 2026 bmdecor.es</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

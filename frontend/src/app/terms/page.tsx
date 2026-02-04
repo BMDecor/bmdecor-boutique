@@ -1,11 +1,20 @@
 import Link from 'next/link';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+
+export const metadata = {
+  title: 'Terms of Service — BM Decoración',
+  description: 'Terms and conditions for using the BM Decoración online boutique.',
+};
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
+      <Navbar />
+
       <div className="max-w-3xl mx-auto px-6 py-16">
         <Link href="/" className="text-sm text-[#C9A86C] hover:underline mb-8 inline-block">
-          &larr; Back to BM Decoracion
+          &larr; Back to BM Decoración
         </Link>
 
         <h1 className="font-[family-name:var(--font-playfair)] text-4xl text-[#2C2C2C] mb-2">
@@ -23,7 +32,7 @@ export default function TermsPage() {
             </p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Business name:</strong> BM Decoraci&oacute;n</li>
-              <li><strong>Address:</strong> Calle Dubl&iacute;n 21, 29660 Marbella, M&aacute;laga, Spain</li>
+              <li><strong>Address:</strong> Calle Dubl&iacute;n 21, 29670 Marbella, M&aacute;laga, Spain</li>
               <li><strong>Contact:</strong> <a href="mailto:info@bmdecor.es" className="text-[#C9A86C]">info@bmdecor.es</a></li>
             </ul>
           </section>
@@ -39,7 +48,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">3. Pricing & Tax</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">3. Pricing &amp; Tax</h2>
             <p>
               All prices displayed on bmdecor.es include 21% Spanish Value Added Tax (IVA) as required
               by law. Prices are quoted in Euros (&euro;). We reserve the right to modify prices at any
@@ -48,7 +57,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">4. Orders & Payment</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">4. Orders &amp; Payment</h2>
             <p>
               Orders are processed upon receipt of payment via Stripe. You will receive an order
               confirmation email. We reserve the right to cancel orders in cases of pricing errors,
@@ -57,11 +66,15 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">5. Delivery & Collection</h2>
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-3">5. Delivery &amp; Collection</h2>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Local delivery:</strong> Available within the Marbella and Costa del Sol region</li>
               <li><strong>Click &amp; Collect:</strong> Orders can be collected from Calle Dubl&iacute;n 21, Marbella</li>
             </ul>
+            <p>
+              For full delivery zone information, see our{' '}
+              <Link href="/shipping" className="text-[#C9A86C] hover:underline">Shipping Policy</Link>.
+            </p>
           </section>
 
           <section>
@@ -106,6 +119,8 @@ export default function TermsPage() {
           BM Decoraci&oacute;n &middot; Calle Dubl&iacute;n 21, Marbella &middot; &copy; 2026 bmdecor.es
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }
