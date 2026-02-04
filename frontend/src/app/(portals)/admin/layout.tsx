@@ -14,6 +14,7 @@ const navLinks = [
   { href: '/admin/pricing', label: 'Pricing', icon: '€' },
   { href: '/admin/inventory', label: 'Inventory', icon: '▦' },
   { href: '/admin/exports', label: 'Exports', icon: '↓' },
+  { href: '/admin/settings', label: 'Settings', icon: '⚙' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
