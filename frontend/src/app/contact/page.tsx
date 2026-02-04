@@ -10,16 +10,23 @@ export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [sending, setSending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
-    // Phase 9d: log to console; future phase will wire to SES/backend
-    console.log('[Contact Form Submission]', form);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error();
       toast.success('Message sent! We\u2019ll be in touch shortly.');
       setForm({ name: '', email: '', phone: '', message: '' });
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
       setSending(false);
-    }, 800);
+    }
   };
 
   return (

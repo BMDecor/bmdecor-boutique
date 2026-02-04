@@ -129,9 +129,13 @@ export default function AdminDashboardPage() {
     { href: '/admin/products', label: 'Products', desc: 'Catalog, pricing & stock' },
     { href: '/admin/colors', label: 'Colors', desc: 'Families & palettes' },
     { href: '/admin/articles', label: 'Articles', desc: 'Blog & content' },
+    { href: '/admin/faqs', label: 'FAQs', desc: 'Frequently asked questions' },
     { href: '/admin/orders', label: 'Orders', desc: 'Order management' },
+    { href: '/admin/contacts', label: 'Contacts', desc: 'Form submissions' },
+    { href: '/admin/coupons', label: 'Coupons', desc: 'Promo codes & discounts' },
     { href: '/admin/users', label: 'Users', desc: `${userCount !== null ? userCount : '...'} registered` },
     { href: '/admin/images', label: 'Images', desc: 'Product gallery' },
+    { href: '/admin/banners', label: 'Banners', desc: 'Homepage hero & features' },
     { href: '/admin/settings', label: 'Settings', desc: 'Company config' },
     { href: '/admin/exports', label: 'Exports', desc: 'Download catalog' },
   ];

@@ -9,9 +9,13 @@ const navLinks = [
   { href: '/admin/products', label: 'Products', icon: '◈' },
   { href: '/admin/colors', label: 'Colors', icon: '◉' },
   { href: '/admin/articles', label: 'Articles', icon: '◊' },
+  { href: '/admin/faqs', label: 'FAQs', icon: '?' },
   { href: '/admin/orders', label: 'Orders', icon: '▤' },
+  { href: '/admin/contacts', label: 'Contacts', icon: '✉' },
+  { href: '/admin/coupons', label: 'Coupons', icon: '%' },
   { href: '/admin/users', label: 'Users', icon: '◆' },
   { href: '/admin/images', label: 'Images', icon: '▣' },
+  { href: '/admin/banners', label: 'Banners', icon: '▨' },
   { href: '/admin/exports', label: 'Exports', icon: '↓' },
   { href: '/admin/settings', label: 'Settings', icon: '⚙' },
 ];

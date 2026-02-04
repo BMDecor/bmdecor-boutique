@@ -210,15 +210,69 @@ function CartItemRow({ item }: { item: CartItemResponse }) {
   }
 }
 
+interface AppliedCoupon {
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minOrderEur: number;
+}
+
 export default function CartDrawer() {
   const { items, itemCount, subtotalEur, isDrawerOpen, setDrawerOpen } = useCart();
   const [mounted, setMounted] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode.trim() }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        if (data.minOrderEur > 0 && subtotalEur < data.minOrderEur) {
+          setCouponError(`Min. order \u20AC${data.minOrderEur.toFixed(2)}`);
+        } else {
+          setAppliedCoupon(data);
+          setCouponError('');
+        }
+      } else {
+        setCouponError(data.reason || 'Invalid code');
+      }
+    } catch {
+      setCouponError('Error validating code');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError('');
+  };
+
+  let discountEur = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === 'percentage') {
+      discountEur = subtotalEur * (appliedCoupon.discountValue / 100);
+    } else {
+      discountEur = Math.min(appliedCoupon.discountValue, subtotalEur);
+    }
+  }
+  const finalEur = subtotalEur - discountEur;
   const ivaRate = 0.21;
-  const baseEur = subtotalEur / (1 + ivaRate);
-  const ivaEur = subtotalEur - baseEur;
+  const baseEur = finalEur / (1 + ivaRate);
+  const ivaEur = finalEur - baseEur;
 
   // Group items by product type for display
   const paintItems = items.filter((i) => (i.productType || 'paint') === 'paint');
@@ -299,6 +353,48 @@ export default function CartDrawer() {
         {items.length > 0 && (
           <SheetFooter className="border-t bg-background">
             <div className="space-y-2 w-full">
+              {/* Coupon */}
+              {!appliedCoupon ? (
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Coupon code"
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                      onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                      className="flex-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-mono uppercase bg-background focus:outline-none focus:ring-1 focus:ring-[#C9A86C]/40"
+                    />
+                    <button
+                      onClick={applyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-3 py-1.5 text-xs bg-[#2C2C2C] text-white rounded-md hover:bg-[#404040] disabled:opacity-40"
+                    >
+                      {couponLoading ? '...' : 'Apply'}
+                    </button>
+                  </div>
+                  {couponError && <p className="text-[11px] text-destructive">{couponError}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-green-50 rounded-md px-2.5 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-medium text-green-700">{appliedCoupon.code}</span>
+                    <span className="text-[11px] text-green-600">
+                      {appliedCoupon.discountType === 'percentage'
+                        ? `-${appliedCoupon.discountValue}%`
+                        : `-\u20AC${appliedCoupon.discountValue.toFixed(2)}`}
+                    </span>
+                  </div>
+                  <button onClick={removeCoupon} className="text-[11px] text-green-700 hover:text-red-500">Remove</button>
+                </div>
+              )}
+
+              {discountEur > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Discount</span>
+                  <span>&minus;&euro;{discountEur.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Subtotal (excl. IVA)</span>
                 <span>&euro;{baseEur.toFixed(2)}</span>
@@ -310,7 +406,7 @@ export default function CartDrawer() {
               <Separator />
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-foreground">Total (IVA Incluido)</span>
-                <span className="text-xl font-semibold text-[#C9A86C]">&euro;{subtotalEur.toFixed(2)}</span>
+                <span className="text-xl font-semibold text-[#C9A86C]">&euro;{finalEur.toFixed(2)}</span>
               </div>
               <button className="w-full mt-2 py-3 bg-[#2C2C2C] text-white font-medium text-sm rounded-lg hover:bg-[#404040] active:scale-[0.98] transition-all">
                 Proceed to Checkout

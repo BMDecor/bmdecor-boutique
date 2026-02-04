@@ -43,6 +43,17 @@ const BRAND_HOUSES = [
   },
 ];
 
+interface Banner {
+  id: string;
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  linkUrl: string;
+  linkText: string;
+  position: 'hero' | 'secondary';
+  sortOrder: number;
+}
+
 // Fetch color counts from server
 async function fetchColorCounts(): Promise<Record<string, number>> {
   try {
@@ -179,6 +190,39 @@ function BrandHouseCard({
   );
 }
 
+function SecondaryBannerContent({ banner }: { banner: Banner }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl h-48 group-hover:shadow-lg transition-shadow">
+      {banner.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={banner.imageUrl}
+          alt={banner.title}
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#C9A86C]/20 to-[#2C2C2C]/10" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/60 to-transparent" />
+      <div className="absolute inset-0 flex flex-col justify-end p-5">
+        {banner.title && (
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg text-white font-medium">
+            {banner.title}
+          </h3>
+        )}
+        {banner.subtitle && (
+          <p className="text-white/60 text-sm mt-1">{banner.subtitle}</p>
+        )}
+        {banner.linkText && (
+          <span className="text-[#C9A86C] text-sm mt-2 group-hover:text-white transition-colors">
+            {banner.linkText} &rarr;
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Main Lobby Page
 export default function GrandLobby() {
   const [colorCounts, setColorCounts] = useState<Record<string, number>>({
@@ -186,9 +230,14 @@ export default function GrandLobby() {
     FB: 0,
     LG: 0,
   });
+  const [banners, setBanners] = useState<Banner[]>([]);
 
   useEffect(() => {
     fetchColorCounts().then(setColorCounts);
+    fetch('/api/banners')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setBanners(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, []);
 
   const totalColors = Object.values(colorCounts).reduce((a, b) => a + b, 0);
@@ -224,6 +273,60 @@ export default function GrandLobby() {
         </div>
       </header>
 
+      {/* Hero Banners */}
+      {banners.filter((b) => b.position === 'hero').length > 0 && (
+        <section className="container mx-auto px-6 pb-8">
+          <div className="space-y-4">
+            {banners
+              .filter((b) => b.position === 'hero')
+              .map((banner) => (
+                <motion.div
+                  key={banner.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
+                  className="relative overflow-hidden rounded-2xl h-[300px] md:h-[400px]"
+                >
+                  {banner.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={banner.imageUrl}
+                      alt={banner.title}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#2C2C2C] to-[#C9A86C]/30" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/70 via-[#2C2C2C]/20 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12">
+                    {banner.title && (
+                      <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-5xl text-white font-semibold tracking-tight">
+                        {banner.title}
+                      </h2>
+                    )}
+                    {banner.subtitle && (
+                      <p className="text-white/70 text-lg mt-2 max-w-xl">
+                        {banner.subtitle}
+                      </p>
+                    )}
+                    {banner.linkUrl && banner.linkText && (
+                      <Link
+                        href={banner.linkUrl}
+                        className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 rounded-full bg-[#C9A86C] text-[#2C2C2C] text-sm font-medium hover:bg-[#B8975B] transition-colors w-fit"
+                      >
+                        {banner.linkText}
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                      </Link>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+          </div>
+        </section>
+      )}
+
       {/* Gallery Grid - Brand Houses */}
       <main className="container mx-auto px-6 pb-12">
         <motion.p
@@ -247,6 +350,30 @@ export default function GrandLobby() {
             />
           ))}
         </div>
+
+        {/* Secondary Banners */}
+        {banners.filter((b) => b.position === 'secondary').length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+            {banners
+              .filter((b) => b.position === 'secondary')
+              .map((banner) => (
+                <motion.div
+                  key={banner.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {banner.linkUrl ? (
+                    <Link href={banner.linkUrl} className="group block">
+                      <SecondaryBannerContent banner={banner} />
+                    </Link>
+                  ) : (
+                    <SecondaryBannerContent banner={banner} />
+                  )}
+                </motion.div>
+              ))}
+          </div>
+        )}
       </main>
 
       <Footer />
