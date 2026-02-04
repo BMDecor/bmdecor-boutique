@@ -9,21 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
-import type { CalculatorResult, ComplementaryResult, RoomScene } from '@/lib/api/benjamin-moore';
-import type { SelectedVariant } from '@/lib/cart/types';
-import UniversalVisualizer from '@/components/UniversalVisualizer';
+import type { CalculatorResult } from '@/lib/api/benjamin-moore';
 import CartBadge from '@/components/cart/CartBadge';
-import VariantSelector from '@/components/cart/VariantSelector';
-import AddToBagButton from '@/components/cart/AddToBagButton';
-import StickySubtotalBar from '@/components/cart/StickySubtotalBar';
 import CalculatorCartBridge from '@/components/cart/CalculatorCartBridge';
+import { createSlug } from '@/lib/utils/slugs';
 
 // Types
 interface BMColor {
@@ -40,13 +29,6 @@ interface BMColor {
   inStock: boolean;
 }
 
-// Discovery API response with real BM data
-interface DiscoveryResponse {
-  palettes: ComplementaryResult[];
-  description: string;
-  lrv: number;
-  isActive: boolean;
-}
 
 // Core collection name patterns (everything else goes to Design Trends)
 const CORE_COLLECTION_PATTERNS = [
@@ -57,18 +39,6 @@ const CORE_COLLECTION_PATTERNS = [
 
 function isCorCollection(name: string): boolean {
   return CORE_COLLECTION_PATTERNS.some((pattern) => name.includes(pattern));
-}
-
-/** Strip HTML entities from collection names for display */
-function cleanCollectionName(name: string): string {
-  return name
-    .replace(/&reg;/g, '®')
-    .replace(/&trade;/g, '™')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+Color Collection$/i, '')
-    .replace(/\s+Colors$/i, '')
-    .replace(/\s+Paint Color Collection$/i, '')
-    .trim();
 }
 
 interface CollectionGroup {
@@ -144,11 +114,6 @@ function calculateLRV(hex: string): number {
   const rgb = hex.replace('#', '').match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [0, 0, 0];
   const [r, g, b] = rgb.map((c) => c / 255);
   return Math.round((0.2126 * r + 0.7152 * g + 0.0722 * b) * 100);
-}
-
-function hexToRGB(hex: string): { r: number; g: number; b: number } {
-  const rgb = hex.replace('#', '').match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [0, 0, 0];
-  return { r: rgb[0], g: rgb[1], b: rgb[2] };
 }
 
 function getTextColor(hex: string): string {
@@ -441,387 +406,61 @@ function ProfessionalCalculator({ selectedColor }: { selectedColor: BMColor | nu
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// TECHNICAL SPECS DRAWER (real BM API data)
-// ─────────────────────────────────────────────────────────
-
-function TechnicalSpecsDrawer({
-  color,
-  isOpen,
-  onClose,
-  allColors,
-}: {
-  color: BMColor | null;
-  isOpen: boolean;
-  onClose: () => void;
-  allColors: BMColor[];
-}) {
-  const [roomScenes, setRoomScenes] = useState<RoomScene[]>([]);
-  const [palettes, setPalettes] = useState<ComplementaryResult[]>([]);
-  const [apiDescription, setApiDescription] = useState<string>('');
-  const [apiLRV, setApiLRV] = useState<number | null>(null);
-  const [isLoadingScenes, setIsLoadingScenes] = useState(false);
-  const [isLoadingPalettes, setIsLoadingPalettes] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visualizer' | 'colors' | 'specs'>('colors');
-  const [selectedVariant, setSelectedVariant] = useState<SelectedVariant | null>(null);
-
-  useEffect(() => {
-    if (color && isOpen) {
-      // Load visualizer scenes
-      setIsLoadingScenes(true);
-      fetch('/api/bm/visualizer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ colorNumber: color.colorCode, hexCode: color.hexCode }),
-      })
-        .then((res) => res.json())
-        .then((data) => setRoomScenes(data.scenes || []))
-        .finally(() => setIsLoadingScenes(false));
-
-      // Load real BM discovery data (harmony, similar, shades, description, LRV)
-      setIsLoadingPalettes(true);
-      fetch('/api/bm/discover', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ colorNumber: color.colorCode }),
-      })
-        .then((res) => res.json())
-        .then((data: DiscoveryResponse) => {
-          setPalettes(data.palettes || []);
-          setApiDescription(data.description || '');
-          setApiLRV(data.lrv ?? null);
-        })
-        .finally(() => setIsLoadingPalettes(false));
-    }
-  }, [color, isOpen]);
-
-  if (!color) return null;
-
-  const fallbackLRV = calculateLRV(color.hexCode);
-  const lrv = apiLRV !== null ? Math.round(apiLRV) : fallbackLRV;
-  const rgb = hexToRGB(color.hexCode);
-
-  return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="font-[family-name:var(--font-playfair)] text-2xl flex items-center gap-3">
-            {color.name}
-            <Badge className="bg-[#C9A86C] text-[#2C2C2C]">BM API</Badge>
-          </SheetTitle>
-          <SheetDescription>{color.colorCode} · {color.collection}</SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-4">
-          {/* Color Swatch */}
-          <div
-            className="w-full aspect-[3/1] rounded-xl shadow-lg mb-3"
-            style={{ backgroundColor: color.hexCode }}
-          />
-
-          {/* Official Description from BM API */}
-          {apiDescription && (
-            <p className="text-sm text-muted-foreground italic mb-4 px-1">
-              &ldquo;{apiDescription}&rdquo;
-            </p>
-          )}
-
-          {/* Tab Navigation */}
-          <div className="flex gap-1 mb-4 bg-secondary p-1 rounded-lg">
-            {(['colors', 'visualizer', 'specs'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === tab
-                    ? 'bg-[#2C2C2C] text-white'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab === 'colors' ? 'BM Palettes' : tab === 'visualizer' ? 'Visualizer' : 'Technical'}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab Content */}
-          <AnimatePresence mode="wait">
-            {activeTab === 'colors' && (
-              <motion.div
-                key="colors"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                  </svg>
-                  <h3 className="text-sm font-semibold">Official BM Color Palettes</h3>
-                </div>
-
-                {isLoadingPalettes ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-20 bg-secondary rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : palettes.length > 0 ? (
-                  <div className="space-y-4">
-                    {palettes.map((palette) => (
-                      <div key={palette.type} className="p-3 bg-secondary rounded-lg">
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                          {palette.type}
-                        </h4>
-                        <div className="flex gap-2">
-                          {palette.colors.map((c) => (
-                            <div key={c.colorNumber} className="flex-1 min-w-0">
-                              <div
-                                className="aspect-square rounded-lg shadow-sm mb-1"
-                                style={{ backgroundColor: c.hex }}
-                              />
-                              <div className="text-[10px] font-medium text-foreground truncate">
-                                {c.colorName}
-                              </div>
-                              <div className="text-[10px] font-mono text-muted-foreground">
-                                {c.colorNumber}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  /* ─── Palette Fail-Safe: Collection Fallback ─── */
-                  (() => {
-                    const siblings = allColors
-                      .filter(
-                        (c) =>
-                          c.collection === color.collection &&
-                          c.colorCode !== color.colorCode
-                      )
-                      .slice(0, 4);
-
-                    return siblings.length > 0 ? (
-                      <div className="space-y-4">
-                        <div className="p-3 bg-secondary rounded-lg">
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                            More from {cleanCollectionName(color.collection || 'Collection')}
-                          </h4>
-                          <div className="flex gap-2">
-                            {siblings.map((c) => (
-                              <div key={c.colorCode} className="flex-1 min-w-0">
-                                <div
-                                  className="aspect-square rounded-lg shadow-sm mb-1"
-                                  style={{ backgroundColor: c.hexCode }}
-                                />
-                                <div className="text-[10px] font-medium text-foreground truncate">
-                                  {c.name}
-                                </div>
-                                <div className="text-[10px] font-mono text-muted-foreground">
-                                  {c.colorCode}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Local collection fallback — BM Discovery API returned no palettes
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        No palette data available for this color.
-                      </div>
-                    );
-                  })()
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Curated by Benjamin Moore via GetColorDetail API
-                </p>
-              </motion.div>
-            )}
-
-            {activeTab === 'visualizer' && (
-              <UniversalVisualizer
-                color={{
-                  name: color.name,
-                  colorCode: color.colorCode,
-                  hexCode: color.hexCode,
-                }}
-                roomScenes={roomScenes}
-                isLoading={isLoadingScenes}
-                lrv={lrv}
-                rgb={rgb}
-                accentColor="#C9A86C"
-              />
-            )}
-
-            {activeTab === 'specs' && (
-              <motion.div
-                key="specs"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-secondary rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      LRV {apiLRV !== null ? '(Official)' : '(Calculated)'}
-                    </div>
-                    <div className="text-3xl font-semibold text-foreground">{lrv}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {lrv > 50 ? 'Light reflectance' : 'Low reflectance'}
-                    </div>
-                  </div>
-                  <div className="p-4 bg-secondary rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">Hex</div>
-                    <div className="text-xl font-mono font-semibold text-foreground">
-                      {color.hexCode}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-secondary rounded-lg">
-                  <div className="text-xs text-muted-foreground mb-2">RGB Values</div>
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-red-500" />
-                      <span className="font-mono text-sm">{rgb.r}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-green-500" />
-                      <span className="font-mono text-sm">{rgb.g}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-blue-500" />
-                      <span className="font-mono text-sm">{rgb.b}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Collection</span>
-                    <span className="font-medium">{color.collection}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Finish</span>
-                    <span className="font-medium">{color.finishType}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Volume</span>
-                    <span className="font-medium">{color.volume}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">In Stock</span>
-                    <span className="font-medium">{color.inStock ? 'Yes' : 'No'}</span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <Separator className="my-4" />
-
-          {/* Variant Selector */}
-          <VariantSelector
-            productLines={PRODUCT_LINES}
-            onVariantChange={setSelectedVariant}
-          />
-
-          {/* Add to Bag */}
-          <div className="mt-4">
-            <AddToBagButton
-              item={
-                selectedVariant && color
-                  ? {
-                      colorNumber: color.colorCode,
-                      colorName: color.name,
-                      hexCode: color.hexCode,
-                      productLine: selectedVariant.productLine,
-                      productNumber: selectedVariant.productNumber,
-                      sheen: selectedVariant.sheen,
-                      size: selectedVariant.size,
-                      brand: 'BM',
-                    }
-                  : null
-              }
-            />
-          </div>
-
-          {/* Sticky Subtotal */}
-          <StickySubtotalBar variant={selectedVariant} />
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
 
 // ─────────────────────────────────────────────────────────
-// COLOR CARD
+// COLOR CARD (Links to SEO product page)
 // ─────────────────────────────────────────────────────────
 
-function BMColorCard({
-  color,
-  onSelect,
-}: {
-  color: BMColor;
-  onSelect: (color: BMColor) => void;
-}) {
+function BMColorCard({ color }: { color: BMColor }) {
   const textColor = getTextColor(color.hexCode);
   const lrv = calculateLRV(color.hexCode);
+  const slug = createSlug(color);
 
   return (
     <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
-      <Card
-        className="group overflow-hidden border-0 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
-        onClick={() => onSelect(color)}
-      >
-        <div
-          className="aspect-square w-full relative"
-          style={{ backgroundColor: color.hexCode }}
-        >
+      <Link href={`/color/${slug}`}>
+        <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer">
           <div
-            className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ backgroundColor: `${textColor}20`, color: textColor }}
+            className="aspect-square w-full relative"
+            style={{ backgroundColor: color.hexCode }}
           >
-            LRV {lrv}
+            <div
+              className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ backgroundColor: `${textColor}20`, color: textColor }}
+            >
+              LRV {lrv}
+            </div>
+            <div
+              className="absolute bottom-3 left-3 font-mono text-sm font-semibold"
+              style={{ color: textColor }}
+            >
+              {color.colorCode}
+            </div>
+            <div
+              className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ color: textColor }}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </div>
           </div>
-          <div
-            className="absolute bottom-3 left-3 font-mono text-sm font-semibold"
-            style={{ color: textColor }}
-          >
-            {color.colorCode}
-          </div>
-          <div
-            className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ color: textColor }}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-        <CardContent className="p-4 space-y-1 bg-white">
-          <h3 className="font-medium text-foreground leading-tight line-clamp-1">
-            {color.name}
-          </h3>
-          <p className="text-xs text-muted-foreground">{color.collection}</p>
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-sm font-semibold text-[#C9A86C]">
-              €{color.priceEur.toFixed(2)}
-            </span>
-            <Badge variant="outline" className="text-xs">
-              {color.finishType.split(' ')[0]}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+          <CardContent className="p-4 space-y-1 bg-white">
+            <h3 className="font-medium text-foreground leading-tight line-clamp-1">
+              {color.name}
+            </h3>
+            <p className="text-xs text-muted-foreground">{color.collection}</p>
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-sm font-semibold text-[#C9A86C]">
+                €{color.priceEur.toFixed(2)}
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {color.finishType.split(' ')[0]}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
     </motion.div>
   );
 }
@@ -833,7 +472,6 @@ function BMColorCard({
 export default function BenjaminMoorePage() {
   const [colors, setColors] = useState<BMColor[]>([]);
   const [selectedColor, setSelectedColor] = useState<BMColor | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [lrvRange, setLrvRange] = useState<[number, number]>([0, 100]);
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -904,11 +542,6 @@ export default function BenjaminMoorePage() {
 
     return lrvMatch && collectionMatch && searchMatch;
   });
-
-  const handleColorSelect = (color: BMColor) => {
-    setSelectedColor(color);
-    setIsDrawerOpen(true);
-  };
 
   const productTabs = useMemo(() => [
     { id: 'paint', label: 'Paint', count: colors.length },
@@ -1078,7 +711,7 @@ export default function BenjaminMoorePage() {
                 {selectedDisplayName}
               </h2>
               <span className="text-sm text-muted-foreground">
-                {filteredColors.length} colors · Click for BM tools
+                {filteredColors.length} colors · Click to view details
               </span>
             </div>
 
@@ -1092,7 +725,7 @@ export default function BenjaminMoorePage() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                   >
-                    <BMColorCard color={color} onSelect={handleColorSelect} />
+                    <BMColorCard color={color} />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -1112,14 +745,6 @@ export default function BenjaminMoorePage() {
           </div>
         </div>
       </main>
-
-      {/* Technical Specs Drawer */}
-      <TechnicalSpecsDrawer
-        color={selectedColor}
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        allColors={colors}
-      />
 
       {/* Footer */}
       <footer className="border-t border-[#E8E2D9] bg-white mt-auto">
