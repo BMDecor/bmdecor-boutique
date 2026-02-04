@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "gen-keys": "sh scripts/create-vercel-keys.sh"
+    "gen-keys": "sh scripts/create-vercel-keys.sh",
+    "update-perms": "sh scripts/update-vercel-permissions.sh"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.982.0",
