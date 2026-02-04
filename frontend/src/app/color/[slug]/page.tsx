@@ -119,12 +119,14 @@ async function getProductBySlug(slug: string): Promise<ColorProduct | null> {
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
 
+    // Match the slugify function behavior: remove special chars, collapse to hyphens
     const normalizeCode = (code: string) =>
       code
         .toLowerCase()
-        .replace(/[^\w]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+        .replace(/[^\w\s-]/g, '') // Remove special characters (same as slugify)
+        .replace(/[\s_]+/g, '-')  // Replace spaces/underscores with hyphens
+        .replace(/-+/g, '-')      // Collapse multiple hyphens
+        .replace(/^-|-$/g, '');   // Trim leading/trailing hyphens
 
     const product = allItems.find((item) => {
       const itemCode = String(item.colorCode || '');
