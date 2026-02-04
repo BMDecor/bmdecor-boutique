@@ -4,8 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import CartBadge from '@/components/cart/CartBadge';
-import UserMenu from '@/components/auth/UserMenu';
 import Footer from '@/components/layout/Footer';
 
 // Brand House Configuration with Unsplash imagery
@@ -214,21 +212,13 @@ export default function GrandLobby() {
                 Marbella
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-baseline gap-2">
-                <span className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl font-semibold text-[#C9A86C]">
-                  {totalColors}
-                </span>
-                <span className="text-sm text-[#666666] uppercase tracking-wider">
-                  Curated Colors
-                </span>
-              </div>
-              <div className="flex items-center gap-3 ml-4">
-                <div className="[&_button]:text-[#2C2C2C]/70 [&_button]:hover:text-[#2C2C2C] [&_svg]:text-[#2C2C2C]/70">
-                  <UserMenu />
-                </div>
-                <CartBadge />
-              </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl font-semibold text-[#C9A86C]">
+                {totalColors}
+              </span>
+              <span className="text-sm text-[#666666] uppercase tracking-wider">
+                Curated Colors
+              </span>
             </div>
           </motion.div>
         </div>
