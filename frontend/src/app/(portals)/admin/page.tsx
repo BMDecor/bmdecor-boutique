@@ -128,6 +128,7 @@ export default function AdminDashboardPage() {
   const quickLinks = [
     { href: '/admin/products', label: 'Products', desc: 'Catalog, pricing & stock' },
     { href: '/admin/colors', label: 'Colors', desc: 'Families & palettes' },
+    { href: '/admin/articles', label: 'Articles', desc: 'Blog & content' },
     { href: '/admin/orders', label: 'Orders', desc: 'Order management' },
     { href: '/admin/users', label: 'Users', desc: `${userCount !== null ? userCount : '...'} registered` },
     { href: '/admin/images', label: 'Images', desc: 'Product gallery' },

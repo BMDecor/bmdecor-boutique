@@ -8,6 +8,7 @@ const navLinks = [
   { href: '/admin', label: 'Dashboard', icon: '□' },
   { href: '/admin/products', label: 'Products', icon: '◈' },
   { href: '/admin/colors', label: 'Colors', icon: '◉' },
+  { href: '/admin/articles', label: 'Articles', icon: '◊' },
   { href: '/admin/orders', label: 'Orders', icon: '▤' },
   { href: '/admin/users', label: 'Users', icon: '◆' },
   { href: '/admin/images', label: 'Images', icon: '▣' },
