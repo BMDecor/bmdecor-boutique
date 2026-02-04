@@ -13,11 +13,23 @@ function getCredentials() {
   }
 
   // Local development: use AWS profile
+  // fromIni returns a lazy provider — it won't throw until credentials are
+  // actually resolved. Wrap it so resolution errors are caught and surfaced
+  // as a warning instead of crashing the build.
   try {
-    // Dynamic import to avoid bundling @aws-sdk/credential-providers in production
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { fromIni } = require('@aws-sdk/credential-providers');
-    return fromIni({ profile: 'bmdecor' });
+    const provider = fromIni({ profile: 'bmdecor' });
+
+    // Return a wrapper that catches resolution errors
+    return async () => {
+      try {
+        return await provider();
+      } catch {
+        console.warn('Running without AWS credentials. Data will be empty.');
+        return { accessKeyId: '', secretAccessKey: '' };
+      }
+    };
   } catch {
     console.warn('Running without AWS credentials. Data will be empty.');
     return undefined;

@@ -72,7 +72,7 @@ export async function getColors(): Promise<ColorProduct[]> {
     return colors;
   } catch (error) {
     console.error('Error fetching colors from DynamoDB:', error);
-    throw new Error('Failed to fetch colors');
+    return [];
   }
 }
 
@@ -115,6 +115,6 @@ export async function getColorsByBrand(brand: Brand): Promise<ColorProduct[]> {
     return colors;
   } catch (error) {
     console.error(`Error fetching ${brand} colors from DynamoDB:`, error);
-    throw new Error(`Failed to fetch ${brand} colors`);
+    return [];
   }
 }
