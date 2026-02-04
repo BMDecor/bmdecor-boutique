@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
       : await getCartForUser(resolved.cartId);
     return NextResponse.json(cart);
   } catch (error) {
-    console.error('Cart GET error:', error);
-    return NextResponse.json({ error: 'Failed to fetch cart' }, { status: 500 });
+    console.error('CRITICAL CART API ERROR:', error);
+    return NextResponse.json({ cartId: '', itemCount: 0, subtotalEur: 0, items: [] }, { status: 200 });
   }
 }
 

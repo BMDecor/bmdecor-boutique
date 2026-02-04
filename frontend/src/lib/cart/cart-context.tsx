@@ -51,7 +51,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .then((data: CartResponse) => setCart(data))
       .catch((err) => {
-        if (err.name !== 'AbortError') console.error('Cart load failed:', err);
+        if (err.name !== 'AbortError') {
+          console.error('Cart load failed, using local/empty', err);
+        }
+        setCart({ cartId: '', itemCount: 0, subtotalEur: 0, items: [] });
       })
       .finally(() => {
         clearTimeout(timeout);
