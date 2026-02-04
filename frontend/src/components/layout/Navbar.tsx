@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { Search, User, Menu, ChevronDown } from 'lucide-react';
-import { useAuth } from '@/lib/auth/auth-context';
 import CartBadge from '@/components/cart/CartBadge';
 import {
   Sheet,
@@ -29,7 +28,6 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { isAuthenticated } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [brandsOpen, setBrandsOpen] = useState(false);
   const brandsRef = useRef<HTMLDivElement>(null);
@@ -120,7 +118,7 @@ export default function Navbar() {
 
           {/* Account */}
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" asChild>
-            <Link href={isAuthenticated ? '/my-studio' : '/?authRequired=customer'} aria-label="Account">
+            <Link href="/sign-in" aria-label="Account">
               <User className="h-5 w-5" />
             </Link>
           </Button>
@@ -188,8 +186,8 @@ export default function Navbar() {
 
               <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Account</p>
               <SheetClose asChild>
-                <Link href={isAuthenticated ? '/my-studio' : '/?authRequired=customer'} className="py-2.5 text-sm text-[#2C2C2C]/70 hover:text-[#2C2C2C]">
-                  {isAuthenticated ? 'My Design Studio' : 'Sign In'}
+                <Link href="/sign-in" className="py-2.5 text-sm text-[#2C2C2C]/70 hover:text-[#2C2C2C]">
+                  My Account
                 </Link>
               </SheetClose>
             </div>
