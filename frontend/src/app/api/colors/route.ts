@@ -127,6 +127,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(colors);
   } catch (error) {
     console.error('Error fetching colors:', error);
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json([], { status: 200 });
   }
 }

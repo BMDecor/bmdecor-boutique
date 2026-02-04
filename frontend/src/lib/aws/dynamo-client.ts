@@ -18,8 +18,8 @@ function getCredentials() {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { fromIni } = require('@aws-sdk/credential-providers');
     return fromIni({ profile: 'bmdecor' });
-  } catch (err) {
-    console.warn('AWS credentials: No env vars and fromIni failed. Falling back to default chain.', err);
+  } catch {
+    console.warn('Running without AWS credentials. Data will be empty.');
     return undefined;
   }
 }

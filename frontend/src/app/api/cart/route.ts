@@ -78,6 +78,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, cart });
   } catch (error) {
     console.error('Cart POST error:', error);
-    return NextResponse.json({ error: 'Failed to add item to cart' }, { status: 500 });
+    return NextResponse.json({ success: false, cart: { cartId: '', itemCount: 0, subtotalEur: 0, items: [] } }, { status: 200 });
   }
 }
