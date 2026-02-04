@@ -32,7 +32,7 @@ export default function Navbar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
-    <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#E8E2D9]">
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#E8E2D9]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Left — Logo */}
@@ -108,57 +108,59 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Sheet Menu */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="right" className="bg-[#FAF8F5] w-[300px]">
-          <SheetHeader>
-            <SheetTitle className="font-[family-name:var(--font-playfair)] text-lg text-[#2C2C2C]">
-              BM Decoración
-            </SheetTitle>
-          </SheetHeader>
+      {/* Mobile Sheet Menu — only mount when open to prevent invisible overlay blocking clicks */}
+      {mobileOpen && (
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="right" className="bg-[#FAF8F5] w-[300px]">
+            <SheetHeader>
+              <SheetTitle className="font-[family-name:var(--font-playfair)] text-lg text-[#2C2C2C]">
+                BM Decoración
+              </SheetTitle>
+            </SheetHeader>
 
-          <div className="flex flex-col gap-1 px-4 mt-2">
-            <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Brand Houses</p>
-            {NAV_LINKS.map((link) => (
-              <SheetClose key={link.href} asChild>
-                <Link
-                  href={link.href}
-                  className={`py-2.5 text-sm transition-colors ${
-                    isActive(link.href) ? 'text-[#C9A86C] font-medium' : 'text-[#2C2C2C]/70'
-                  }`}
-                >
-                  {link.label}
+            <div className="flex flex-col gap-1 px-4 mt-2">
+              <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Brand Houses</p>
+              {NAV_LINKS.map((link) => (
+                <SheetClose key={link.href} asChild>
+                  <Link
+                    href={link.href}
+                    className={`py-2.5 text-sm transition-colors ${
+                      isActive(link.href) ? 'text-[#C9A86C] font-medium' : 'text-[#2C2C2C]/70'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </SheetClose>
+              ))}
+
+              <div className="h-px bg-[#E8E2D9] my-3" />
+
+              <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Explore</p>
+              {SECONDARY_LINKS.map((link) => (
+                <SheetClose key={link.href} asChild>
+                  <Link
+                    href={link.href}
+                    className={`py-2.5 text-sm transition-colors ${
+                      isActive(link.href) ? 'text-[#C9A86C] font-medium' : 'text-[#2C2C2C]/70'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </SheetClose>
+              ))}
+
+              <div className="h-px bg-[#E8E2D9] my-3" />
+
+              <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Account</p>
+              <SheetClose asChild>
+                <Link href="/my-studio" className="py-2.5 text-sm text-[#2C2C2C]/70">
+                  My Design Studio
                 </Link>
               </SheetClose>
-            ))}
-
-            <div className="h-px bg-[#E8E2D9] my-3" />
-
-            <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Explore</p>
-            {SECONDARY_LINKS.map((link) => (
-              <SheetClose key={link.href} asChild>
-                <Link
-                  href={link.href}
-                  className={`py-2.5 text-sm transition-colors ${
-                    isActive(link.href) ? 'text-[#C9A86C] font-medium' : 'text-[#2C2C2C]/70'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              </SheetClose>
-            ))}
-
-            <div className="h-px bg-[#E8E2D9] my-3" />
-
-            <p className="text-xs uppercase tracking-widest text-[#2C2C2C]/40 mb-2">Account</p>
-            <SheetClose asChild>
-              <Link href="/my-studio" className="py-2.5 text-sm text-[#2C2C2C]/70">
-                My Design Studio
-              </Link>
-            </SheetClose>
-          </div>
-        </SheetContent>
-      </Sheet>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </nav>
   );
 }

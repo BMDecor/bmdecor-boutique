@@ -20,9 +20,19 @@ const docClient = DynamoDBDocumentClient.from(ddbClient, {
   },
 });
 
+/**
+ * GET /api/colors
+ *
+ * Query params:
+ *   brand  — filter by brand (BM, FB, LG)
+ *   type   — product type: paint (default), wallpaper, accessory
+ */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const brand = searchParams.get('brand');
+  const productType = searchParams.get('type') || 'paint';
+
+  console.log('DynamoDB Client Config:', { region: CONFIG.AWS_REGION, table: CONFIG.TABLE_NAME, brand, productType });
 
   try {
     const allItems: Record<string, unknown>[] = [];
@@ -64,7 +74,60 @@ export async function GET(request: NextRequest) {
       } while (lastKey);
     }
 
-    const colors = allItems.map((item) => ({
+    // Filter by product type
+    const filtered = allItems.filter((item) => {
+      const itemType = (item.productType as string) || 'paint';
+      return itemType === productType;
+    });
+
+    // Shape response based on product type
+    if (productType === 'wallpaper') {
+      const wallpapers = filtered.map((item) => ({
+        id: item.id,
+        brand: item.brand,
+        name: item.name,
+        designName: item.designName,
+        colourway: item.colourway,
+        collection: item.collection,
+        priceEur: item.priceEur,
+        priceCode: item.priceCode,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        lifestyleImageUrl: item.lifestyleImageUrl,
+        rollWidth: item.rollWidth,
+        repeat: item.repeat,
+        drop: item.drop,
+        hangingMethod: item.hangingMethod,
+        basePaper: item.basePaper,
+        washability: item.washability,
+        printingMethod: item.printingMethod,
+        paintReferences: item.paintReferences,
+        barcode: item.barcode,
+        sampleSku: item.sampleSku,
+        inStock: item.inStock,
+      }));
+      wallpapers.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      return NextResponse.json(wallpapers);
+    }
+
+    if (productType === 'accessory') {
+      const accessories = filtered.map((item) => ({
+        id: item.id,
+        brand: item.brand,
+        name: item.name,
+        priceEur: item.priceEur,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        category: item.category,
+        size: item.size,
+        inStock: item.inStock,
+      }));
+      accessories.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      return NextResponse.json(accessories);
+    }
+
+    // Default: paint
+    const colors = filtered.map((item) => ({
       id: item.id,
       brand: item.brand,
       name: item.name,
@@ -78,9 +141,7 @@ export async function GET(request: NextRequest) {
       inStock: item.inStock,
     }));
 
-    // Sort by name
     colors.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-
     return NextResponse.json(colors);
   } catch (error) {
     console.error('Error fetching colors:', error);
