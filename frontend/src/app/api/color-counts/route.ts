@@ -28,6 +28,6 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching color counts:', error);
     // Return fallback counts on error
-    return NextResponse.json({ BM: 25, FB: 0, LG: 10 });
+    return NextResponse.json({ BM: 0, FB: 0, LG: 0 });
   }
 }

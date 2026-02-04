@@ -53,7 +53,7 @@ async function fetchColorCounts(): Promise<Record<string, number>> {
   } catch {
     // Fallback to default counts if API fails
   }
-  return { BM: 25, FB: 0, LG: 10 };
+  return { BM: 0, FB: 0, LG: 0 };
 }
 
 // Brand House Card Component with Framer Motion
@@ -182,9 +182,9 @@ function BrandHouseCard({
 // Main Lobby Page
 export default function GrandLobby() {
   const [colorCounts, setColorCounts] = useState<Record<string, number>>({
-    BM: 25,
+    BM: 0,
     FB: 0,
-    LG: 10,
+    LG: 0,
   });
 
   useEffect(() => {
