@@ -7,9 +7,8 @@
  * Returns all products for display in the Color Grid.
  */
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 
 // Types matching shared/types.ts
 export type Brand = 'BM' | 'FB' | 'LG';
@@ -28,25 +27,6 @@ export interface ColorProduct {
   inStock: boolean;
 }
 
-// Configuration
-const CONFIG = {
-  AWS_PROFILE: 'bmdecor',
-  AWS_REGION: 'eu-west-1',
-  TABLE_NAME: 'BmDecorProducts',
-};
-
-// Initialize DynamoDB client with bmdecor profile
-const ddbClient = new DynamoDBClient({
-  region: CONFIG.AWS_REGION,
-  credentials: fromIni({ profile: CONFIG.AWS_PROFILE }),
-});
-
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
-
 /**
  * Fetch all colors from DynamoDB
  */
@@ -54,7 +34,7 @@ export async function getColors(): Promise<ColorProduct[]> {
   try {
     const result = await docClient.send(
       new ScanCommand({
-        TableName: CONFIG.TABLE_NAME,
+        TableName: TABLE_NAME,
         FilterExpression: 'entityType = :type',
         ExpressionAttributeValues: {
           ':type': 'PRODUCT',
@@ -103,7 +83,7 @@ export async function getColorsByBrand(brand: Brand): Promise<ColorProduct[]> {
   try {
     const result = await docClient.send(
       new ScanCommand({
-        TableName: CONFIG.TABLE_NAME,
+        TableName: TABLE_NAME,
         FilterExpression: 'brand = :brand AND entityType = :type',
         ExpressionAttributeValues: {
           ':brand': brand,

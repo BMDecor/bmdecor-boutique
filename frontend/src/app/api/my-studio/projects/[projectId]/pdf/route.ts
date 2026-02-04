@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { verifyIdToken } from '@/lib/auth/jwt-verify';
 import { renderToBuffer } from '@react-pdf/renderer';
 import PaletteSheet from '@/lib/pdf/palette-sheet';
-
-const docClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: 'eu-west-1', credentials: fromIni({ profile: 'bmdecor' }) }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
-
-const TABLE = 'BmDecorProducts';
 
 export async function GET(
   request: NextRequest,
@@ -31,7 +23,7 @@ export async function GET(
     const { projectId } = await params;
 
     const result = await docClient.send(new GetCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: { PK: `PROJECT#USER_${sub}`, SK: `PROJECT#${projectId}` },
     }));
 

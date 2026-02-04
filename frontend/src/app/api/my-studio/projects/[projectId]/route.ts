@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { GetCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { verifyIdToken } from '@/lib/auth/jwt-verify';
-
-const docClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: 'eu-west-1', credentials: fromIni({ profile: 'bmdecor' }) }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
-
-const TABLE = 'BmDecorProducts';
 
 export async function GET(
   request: NextRequest,
@@ -29,7 +21,7 @@ export async function GET(
     const { projectId } = await params;
 
     const result = await docClient.send(new GetCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,
@@ -92,7 +84,7 @@ export async function PUT(
     }
 
     const result = await docClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,
@@ -135,7 +127,7 @@ export async function DELETE(
     const { projectId } = await params;
 
     await docClient.send(new DeleteCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,

@@ -1,26 +1,12 @@
 import { NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
-
-const CONFIG = {
-  AWS_PROFILE: 'bmdecor',
-  AWS_REGION: 'eu-west-1',
-  TABLE_NAME: 'BmDecorProducts',
-};
-
-const ddbClient = new DynamoDBClient({
-  region: CONFIG.AWS_REGION,
-  credentials: fromIni({ profile: CONFIG.AWS_PROFILE }),
-});
-
-const docClient = DynamoDBDocumentClient.from(ddbClient);
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 
 export async function GET() {
   try {
     const result = await docClient.send(
       new ScanCommand({
-        TableName: CONFIG.TABLE_NAME,
+        TableName: TABLE_NAME,
         FilterExpression: 'entityType = :type',
         ExpressionAttributeValues: {
           ':type': 'PRODUCT',

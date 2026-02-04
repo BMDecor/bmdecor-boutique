@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
-
-const CONFIG = {
-  AWS_PROFILE: 'bmdecor',
-  AWS_REGION: 'eu-west-1',
-  TABLE_NAME: 'BmDecorProducts',
-};
-
-const ddbClient = new DynamoDBClient({
-  region: CONFIG.AWS_REGION,
-  credentials: fromIni({ profile: CONFIG.AWS_PROFILE }),
-});
-
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-  },
-});
+import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 
 /**
  * GET /api/colors
@@ -32,7 +14,7 @@ export async function GET(request: NextRequest) {
   const brand = searchParams.get('brand');
   const productType = searchParams.get('type') || 'paint';
 
-  console.log('DynamoDB Client Config:', { region: CONFIG.AWS_REGION, table: CONFIG.TABLE_NAME, brand, productType });
+  console.log('DynamoDB Client Config:', { table: TABLE_NAME, brand, productType });
 
   try {
     const allItems: Record<string, unknown>[] = [];
@@ -43,7 +25,7 @@ export async function GET(request: NextRequest) {
       do {
         const result = await docClient.send(
           new QueryCommand({
-            TableName: CONFIG.TABLE_NAME,
+            TableName: TABLE_NAME,
             IndexName: 'GSI-Brand',
             KeyConditionExpression: 'brand = :brand',
             ExpressionAttributeValues: {
@@ -61,7 +43,7 @@ export async function GET(request: NextRequest) {
       do {
         const result = await docClient.send(
           new ScanCommand({
-            TableName: CONFIG.TABLE_NAME,
+            TableName: TABLE_NAME,
             FilterExpression: 'entityType = :type',
             ExpressionAttributeValues: {
               ':type': 'PRODUCT',

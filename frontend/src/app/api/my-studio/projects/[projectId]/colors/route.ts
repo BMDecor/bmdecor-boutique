@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { verifyIdToken } from '@/lib/auth/jwt-verify';
-
-const docClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: 'eu-west-1', credentials: fromIni({ profile: 'bmdecor' }) }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
-
-const TABLE = 'BmDecorProducts';
 
 export async function POST(
   request: NextRequest,
@@ -36,7 +28,7 @@ export async function POST(
 
     // Verify project exists and belongs to user
     const existing = await docClient.send(new GetCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,
@@ -50,7 +42,7 @@ export async function POST(
     const newColor = { brand, colorCode, colorName, hexCode, notes };
 
     const result = await docClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,
@@ -99,7 +91,7 @@ export async function DELETE(
 
     // Get current project to filter colors
     const existing = await docClient.send(new GetCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,
@@ -117,7 +109,7 @@ export async function DELETE(
     );
 
     const result = await docClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: {
         PK: `PROJECT#USER_${sub}`,
         SK: `PROJECT#${projectId}`,

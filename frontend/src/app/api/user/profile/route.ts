@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, UpdateCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, UpdateCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { fromIni } from '@aws-sdk/credential-providers';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { verifyIdToken } from '@/lib/auth/jwt-verify';
-
-const docClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: 'eu-west-1', credentials: fromIni({ profile: 'bmdecor' }) }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: 'eu-west-1',
   credentials: fromIni({ profile: 'bmdecor' }),
 });
-
-const TABLE = 'BmDecorProducts';
 const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID!;
 
 async function queryAllItems(pk: string, skPrefix: string) {
@@ -23,7 +16,7 @@ async function queryAllItems(pk: string, skPrefix: string) {
   let lastKey: Record<string, unknown> | undefined;
   do {
     const result = await docClient.send(new QueryCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
       ExpressionAttributeValues: { ':pk': pk, ':prefix': skPrefix },
       ExclusiveStartKey: lastKey,
@@ -39,7 +32,7 @@ async function batchDelete(items: { PK: string; SK: string }[]) {
     const batch = items.slice(i, i + 25);
     await docClient.send(new BatchWriteCommand({
       RequestItems: {
-        [TABLE]: batch.map((key) => ({
+        [TABLE_NAME]: batch.map((key) => ({
           DeleteRequest: { Key: { PK: key.PK, SK: key.SK } },
         })),
       },
@@ -67,7 +60,7 @@ export async function DELETE(request: NextRequest) {
     const orders = await queryAllItems(`ORDER#USER_${sub}`, 'ORDER#');
     for (const order of orders) {
       await docClient.send(new UpdateCommand({
-        TableName: TABLE,
+        TableName: TABLE_NAME,
         Key: { PK: order.PK as string, SK: order.SK as string },
         UpdateExpression: 'SET #name = :rName, email = :rEmail, shippingAddress = :rAddr, updatedAt = :now, gdprErasedAt = :now',
         ExpressionAttributeNames: { '#name': 'customerName' },

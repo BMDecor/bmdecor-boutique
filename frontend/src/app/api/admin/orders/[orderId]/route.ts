@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { verifyIdToken, extractGroups } from '@/lib/auth/jwt-verify';
-
-const docClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: 'eu-west-1', credentials: fromIni({ profile: 'bmdecor' }) }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
-
-const TABLE = 'BmDecorProducts';
 
 export async function PATCH(
   request: NextRequest,
@@ -35,7 +27,7 @@ export async function PATCH(
     }
 
     await docClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       Key: { PK: `ORDER#USER_${userId}`, SK: `ORDER#${orderId}` },
       UpdateExpression: 'SET #s = :status, updatedAt = :now',
       ExpressionAttributeNames: { '#s': 'status' },

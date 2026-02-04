@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen-keys": "sh scripts/create-vercel-keys.sh"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.982.0",

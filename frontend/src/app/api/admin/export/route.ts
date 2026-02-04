@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { verifyIdToken, extractGroups } from '@/lib/auth/jwt-verify';
 import * as XLSX from 'xlsx';
-
-const docClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: 'eu-west-1', credentials: fromIni({ profile: 'bmdecor' }) }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
-
-const TABLE = 'BmDecorProducts';
 
 async function getAllProducts() {
   const items: Record<string, unknown>[] = [];
@@ -18,7 +10,7 @@ async function getAllProducts() {
 
   do {
     const result = await docClient.send(new ScanCommand({
-      TableName: TABLE,
+      TableName: TABLE_NAME,
       FilterExpression: 'entityType = :type',
       ExpressionAttributeValues: { ':type': 'PRODUCT' },
       ExclusiveStartKey: lastKey,

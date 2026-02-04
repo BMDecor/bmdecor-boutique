@@ -9,9 +9,7 @@
  * Supports three product types: paint, wallpaper, accessory.
  */
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  DynamoDBDocumentClient,
   QueryCommand,
   PutCommand,
   UpdateCommand,
@@ -19,7 +17,7 @@ import {
   GetCommand,
   BatchWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { fromIni } from '@aws-sdk/credential-providers';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { getPriceForSize } from './variant-config';
 import type {
   CartSessionEntity,
@@ -30,17 +28,6 @@ import type {
   CartProductType,
 } from './types';
 import type { ContainerSize } from './variant-config';
-
-const TABLE_NAME = 'BmDecorProducts';
-
-const ddbClient = new DynamoDBClient({
-  region: 'eu-west-1',
-  credentials: fromIni({ profile: 'bmdecor' }),
-});
-
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 
 function cartPK(cartId: string): string {
   return `CART#GUEST_${cartId}`;
