@@ -1,9 +1,11 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { parseSlug } from '@/lib/utils/slugs';
+import { BASE_URL } from '@/lib/utils/env';
 import ColorDetailView from '@/components/product/ColorDetailView';
+import StandardColorView from '@/components/product/StandardColorView';
 
 interface ColorProduct {
   id: string;
@@ -23,9 +25,71 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Brand configuration
+const BRAND_CONFIG: Record<
+  string,
+  {
+    name: string;
+    slug: string;
+    accentColor: string;
+    bgColor: string;
+    finishTypes: string[];
+  }
+> = {
+  BM: {
+    name: 'Benjamin Moore',
+    slug: 'benjamin-moore',
+    accentColor: '#C9A86C',
+    bgColor: '#2C2C2C',
+    finishTypes: [], // BM uses product lines, not simple finish types
+  },
+  FB: {
+    name: 'Farrow & Ball',
+    slug: 'farrow-and-ball',
+    accentColor: '#F5F1EB',
+    bgColor: '#8B7355',
+    finishTypes: [
+      'Estate Emulsion',
+      'Modern Emulsion',
+      'Dead Flat',
+      'Flat Eggshell',
+      'Estate Eggshell',
+      'Modern Eggshell',
+      'Full Gloss',
+      'Exterior Eggshell',
+      'Exterior Masonry',
+      'Casein Distemper',
+      'Soft Distemper',
+      'Limewash',
+    ],
+  },
+  LG: {
+    name: 'Little Greene',
+    slug: 'little-greene',
+    accentColor: '#E8E4D9',
+    bgColor: '#4A5240',
+    finishTypes: [
+      'Intelligent Matt Emulsion',
+      'Absolute Matt Emulsion',
+      'Intelligent Eggshell',
+      'Intelligent Satin',
+      'Intelligent Gloss',
+      'Intelligent Exterior Eggshell',
+      'Intelligent ASP',
+      "Tom's Oil Eggshell",
+      'Traditional Oil Gloss',
+      'Intelligent Floor Paint',
+      'Interior Oil Eggshell',
+      'Intelligent Masonry Paint',
+      'Wall Primer Sealer',
+      'Distemper',
+      'Limewash',
+    ],
+  },
+};
+
 /**
  * Resolve a slug to a product from DynamoDB.
- * Searches by brand + colorCode (case-insensitive).
  */
 async function getProductBySlug(slug: string): Promise<ColorProduct | null> {
   const parsed = parseSlug(slug);
@@ -34,8 +98,7 @@ async function getProductBySlug(slug: string): Promise<ColorProduct | null> {
   const { brand, codeSlug } = parsed;
 
   try {
-    // Query by brand using GSI
-    let allItems: Record<string, unknown>[] = [];
+    const allItems: Record<string, unknown>[] = [];
     let lastKey: Record<string, unknown> | undefined;
 
     do {
@@ -52,14 +115,16 @@ async function getProductBySlug(slug: string): Promise<ColorProduct | null> {
           ExclusiveStartKey: lastKey,
         })
       );
-      if (result.Items) allItems = [...allItems, ...result.Items];
+      if (result.Items) allItems.push(...result.Items);
       lastKey = result.LastEvaluatedKey;
     } while (lastKey);
 
-    // Find the product by matching the code slug
-    // The codeSlug is the slugified version of colorCode (e.g., "oc-65" from "OC-65")
     const normalizeCode = (code: string) =>
-      code.toLowerCase().replace(/[^\w]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      code
+        .toLowerCase()
+        .replace(/[^\w]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
 
     const product = allItems.find((item) => {
       const itemCode = String(item.colorCode || '');
@@ -144,13 +209,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const brandNames: Record<string, string> = {
-    BM: 'Benjamin Moore',
-    FB: 'Farrow & Ball',
-    LG: 'Little Greene',
-  };
-
-  const brandName = brandNames[product.brand] || product.brand;
+  const brandConfig = BRAND_CONFIG[product.brand];
+  const brandName = brandConfig?.name || product.brand;
   const title = `${product.name} ${product.colorCode} | ${brandName} | BM Decoracion`;
   const description = product.description
     ? `${product.name} (${product.colorCode}) - ${product.description.slice(0, 150)}... Premium paint from ${brandName}. Shop online at BM Decoracion Marbella.`
@@ -159,13 +219,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
+    metadataBase: new URL(BASE_URL),
     openGraph: {
       title,
       description,
       type: 'website',
+      url: `${BASE_URL}/color/${slug}`,
       images: [
         {
-          url: `https://www.benjaminmoore.com/colors/color/${product.colorCode.toLowerCase()}/swatch`,
+          url:
+            product.brand === 'BM'
+              ? `https://www.benjaminmoore.com/colors/color/${product.colorCode.toLowerCase()}/swatch`
+              : `${BASE_URL}/api/og?color=${encodeURIComponent(product.hexCode)}&name=${encodeURIComponent(product.name)}`,
           width: 300,
           height: 300,
           alt: `${product.name} color swatch`,
@@ -178,13 +243,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
     },
     alternates: {
-      canonical: `https://bmdecor.es/color/${slug}`,
+      canonical: `${BASE_URL}/color/${slug}`,
     },
   };
 }
 
 /**
- * Color product detail page - SEO optimized.
+ * Color product detail page - SEO optimized for all brands.
  */
 export default async function ColorPage({ params }: PageProps) {
   const { slug } = await params;
@@ -194,16 +259,8 @@ export default async function ColorPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch all colors for the same brand (for palette fallback)
-  const allBrandColors = await getAllBrandColors(product.brand);
-
-  const brandNames: Record<string, string> = {
-    BM: 'Benjamin Moore',
-    FB: 'Farrow & Ball',
-    LG: 'Little Greene',
-  };
-
-  const brandName = brandNames[product.brand] || product.brand;
+  const brandConfig = BRAND_CONFIG[product.brand];
+  const brandName = brandConfig?.name || product.brand;
 
   // JSON-LD Product Schema for Google Rich Results
   const jsonLd = {
@@ -217,9 +274,12 @@ export default async function ColorPage({ params }: PageProps) {
       '@type': 'Brand',
       name: brandName,
     },
-    sku: product.colorCode,
+    sku: `${product.brand}-${product.colorCode}`,
     color: product.hexCode,
-    image: `https://www.benjaminmoore.com/colors/color/${product.colorCode.toLowerCase()}/swatch`,
+    image:
+      product.brand === 'BM'
+        ? `https://www.benjaminmoore.com/colors/color/${product.colorCode.toLowerCase()}/swatch`
+        : `${BASE_URL}/api/og?color=${encodeURIComponent(product.hexCode)}&name=${encodeURIComponent(product.name)}`,
     offers: {
       '@type': 'Offer',
       price: product.priceEur.toFixed(2),
@@ -250,6 +310,9 @@ export default async function ColorPage({ params }: PageProps) {
     },
   };
 
+  // Fetch all colors for the same brand (for palette fallback)
+  const allBrandColors = await getAllBrandColors(product.brand);
+
   return (
     <>
       {/* JSON-LD Schema */}
@@ -258,12 +321,23 @@ export default async function ColorPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Client-side color detail view */}
-      <ColorDetailView
-        product={product}
-        brandName={brandName}
-        allBrandColors={allBrandColors}
-      />
+      {/* Render brand-specific view */}
+      {product.brand === 'BM' ? (
+        <ColorDetailView
+          product={product}
+          brandName={brandName}
+          allBrandColors={allBrandColors}
+        />
+      ) : (
+        <StandardColorView
+          product={product}
+          brandName={brandName}
+          brandSlug={brandConfig?.slug || product.brand.toLowerCase()}
+          accentColor={brandConfig?.accentColor || '#C9A86C'}
+          bgColor={brandConfig?.bgColor || '#2C2C2C'}
+          finishTypes={brandConfig?.finishTypes || []}
+        />
+      )}
     </>
   );
 }

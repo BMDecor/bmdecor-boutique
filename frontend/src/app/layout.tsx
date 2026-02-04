@@ -6,6 +6,7 @@ import { CartDrawerLazy } from "@/components/cart/CartDrawerLazy";
 import Navbar from "@/components/layout/Navbar";
 import CookieConsent from "@/components/privacy/CookieConsent";
 import { Toaster } from "@/components/ui/sonner";
+import { BASE_URL } from "@/lib/utils/env";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,9 +26,18 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: "BM Decoración — Premium Paint Boutique | Marbella",
   description: "Curated collections from Benjamin Moore, Farrow & Ball, and Little Greene. Premium paints for discerning homes in Marbella and Costa del Sol.",
   keywords: ["paint", "Marbella", "Benjamin Moore", "Farrow & Ball", "Little Greene", "interior design", "premium paint"],
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    siteName: "BM Decoración",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
