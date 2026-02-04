@@ -149,7 +149,7 @@ export class InfrastructureStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
       memorySize: 256,
       environment: {
-        SENDER_EMAIL: 'jason.herren@ionyxsystems.com',
+        SENDER_EMAIL: 'derfischer1778@gmail.com',
       },
       bundling: {
         minify: true,
@@ -162,6 +162,13 @@ export class InfrastructureStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ['ses:SendEmail', 'ses:SendRawEmail'],
         resources: ['*'],
+      })
+    );
+
+    postConfirmationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['cognito-idp:AdminAddUserToGroup'],
+        resources: [`arn:aws:cognito-idp:eu-west-1:450284264313:userpool/eu-west-1_JxtlXtf30`],
       })
     );
 

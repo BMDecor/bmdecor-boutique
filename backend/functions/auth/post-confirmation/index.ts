@@ -1,8 +1,10 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
 import type { PostConfirmationTriggerEvent } from 'aws-lambda';
 
 const ses = new SESClient({ region: 'eu-west-1' });
-const SENDER_EMAIL = process.env.SENDER_EMAIL || 'jason.herren@ionyxsystems.com';
+const cognito = new CognitoIdentityProviderClient({ region: 'eu-west-1' });
+const SENDER_EMAIL = process.env.SENDER_EMAIL || 'derfischer1778@gmail.com';
 
 export const handler = async (event: PostConfirmationTriggerEvent): Promise<PostConfirmationTriggerEvent> => {
   if (event.triggerSource !== 'PostConfirmation_ConfirmSignUp') {
@@ -11,6 +13,18 @@ export const handler = async (event: PostConfirmationTriggerEvent): Promise<Post
 
   const email = event.request.userAttributes.email;
   const displayName = event.request.userAttributes['custom:display_name'] || 'there';
+
+  // Auto-assign Customer group
+  try {
+    await cognito.send(new AdminAddUserToGroupCommand({
+      UserPoolId: event.userPoolId,
+      Username: event.userName,
+      GroupName: 'Customer',
+    }));
+    console.log(`Added ${email} to Customer group`);
+  } catch (error) {
+    console.error('Failed to add user to Customer group:', error);
+  }
 
   const htmlBody = [
     '<div style="background-color:#1a1a1a;padding:40px 20px;font-family:Georgia,serif;">',

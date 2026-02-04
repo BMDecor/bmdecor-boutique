@@ -53,7 +53,7 @@ export function middleware(request: NextRequest) {
     }
 
     if (pathname.startsWith('/my-studio')) {
-      if (!groups || groups.length === 0) {
+      if (!payload || isExpired) {
         const url = request.nextUrl.clone();
         url.pathname = '/';
         url.searchParams.set('authRequired', 'customer');
