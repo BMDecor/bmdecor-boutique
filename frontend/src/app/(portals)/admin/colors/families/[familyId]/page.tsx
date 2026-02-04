@@ -7,11 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirm } from '@/components/admin/delete-confirm';
 import { toast } from 'sonner';
 import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
 
@@ -302,27 +298,17 @@ export default function FamilyDetailPage() {
               <Link href="/admin/colors">Cancel</Link>
             </Button>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <DeleteConfirm
+            title="Delete Color Family"
+            description={`Are you sure you want to delete "${form.name}"? This action cannot be undone.`}
+            onConfirm={handleDelete}
+            loading={deleting}
+            trigger={
               <Button type="button" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50">
                 <Trash2 className="h-4 w-4 mr-2" /> Delete
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="bg-[#FAF8F5]">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Color Family</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete &quot;{form.name}&quot;? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white">
-                  {deleting ? 'Deleting...' : 'Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            }
+          />
         </div>
       </form>
     </div>

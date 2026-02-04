@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { requireAdmin } from '@/lib/api/require-admin';
+import { buildDynamicUpdate } from '@/lib/aws/dynamo-helpers';
 
 type Ctx = { params: Promise<{ familyId: string }> };
 
@@ -47,27 +48,15 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
   try {
     const { familyId } = await params;
     const body = await request.json();
-    const now = new Date().toISOString();
 
-    const allowedFields = ['name', 'description', 'brand', 'hexPreview', 'sortOrder', 'productIds'];
-    const updates: string[] = ['updatedAt = :now'];
-    const values: Record<string, unknown> = { ':now': now };
-    const names: Record<string, string> = {};
-
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        names[`#${field}`] = field;
-        updates.push(`#${field} = :${field}`);
-        values[`:${field}`] = body[field];
-      }
-    }
+    const updateParams = buildDynamicUpdate(body, [
+      'name', 'description', 'brand', 'hexPreview', 'sortOrder', 'productIds',
+    ]);
 
     await docClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { PK: `COLOR_FAMILY#${familyId}`, SK: 'METADATA' },
-      UpdateExpression: `SET ${updates.join(', ')}`,
-      ExpressionAttributeValues: values,
-      ...(Object.keys(names).length > 0 ? { ExpressionAttributeNames: names } : {}),
+      ...updateParams,
     }));
 
     return NextResponse.json({ success: true, id: familyId });

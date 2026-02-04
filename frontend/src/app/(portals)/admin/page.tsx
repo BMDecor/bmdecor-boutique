@@ -126,13 +126,11 @@ export default function AdminDashboardPage() {
   ];
 
   const quickLinks = [
-    { href: '/admin/products', label: 'Products', desc: 'Manage catalog' },
+    { href: '/admin/products', label: 'Products', desc: 'Catalog, pricing & stock' },
     { href: '/admin/colors', label: 'Colors', desc: 'Families & palettes' },
     { href: '/admin/orders', label: 'Orders', desc: 'Order management' },
     { href: '/admin/users', label: 'Users', desc: `${userCount !== null ? userCount : '...'} registered` },
     { href: '/admin/images', label: 'Images', desc: 'Product gallery' },
-    { href: '/admin/pricing', label: 'Pricing', desc: 'Price management' },
-    { href: '/admin/inventory', label: 'Inventory', desc: 'Stock control' },
     { href: '/admin/settings', label: 'Settings', desc: 'Company config' },
     { href: '/admin/exports', label: 'Exports', desc: 'Download catalog' },
   ];

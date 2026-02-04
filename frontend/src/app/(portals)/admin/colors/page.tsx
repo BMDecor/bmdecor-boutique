@@ -4,11 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirm } from '@/components/admin/delete-confirm';
 import { toast } from 'sonner';
 import { Plus, Trash2, Pencil, Palette, Layers } from 'lucide-react';
 
@@ -273,23 +269,16 @@ export default function ColorsPage() {
                           <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                         </Link>
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <DeleteConfirm
+                        title={`Delete "${fam.name}"?`}
+                        description="This action cannot be undone."
+                        onConfirm={() => deleteFamily(fam.id)}
+                        trigger={
                           <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-600 hover:bg-red-50">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-[#FAF8F5]">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete &quot;{fam.name}&quot;?</AlertDialogTitle>
-                            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteFamily(fam.id)} className="bg-red-500 hover:bg-red-600 text-white">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                      />
                     </div>
                   </div>
                 </div>
@@ -370,23 +359,16 @@ export default function ColorsPage() {
                           <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                         </Link>
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <DeleteConfirm
+                        title={`Delete "${pal.name}"?`}
+                        description="This action cannot be undone."
+                        onConfirm={() => deletePalette(pal.id)}
+                        trigger={
                           <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-600 hover:bg-red-50">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-[#FAF8F5]">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete &quot;{pal.name}&quot;?</AlertDialogTitle>
-                            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deletePalette(pal.id)} className="bg-red-500 hover:bg-red-600 text-white">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                      />
                     </div>
                   </div>
                 </div>

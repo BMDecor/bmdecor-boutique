@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { QueryCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { requireAdmin } from '@/lib/api/require-admin';
+import { paginatedQuery } from '@/lib/aws/dynamo-helpers';
 import { ulid } from 'ulid';
 
 export async function GET(request: NextRequest) {
@@ -10,20 +11,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const items: Record<string, unknown>[] = [];
-    let lastKey: Record<string, unknown> | undefined;
-
-    do {
-      const result = await docClient.send(new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: 'GSI-EntityType',
-        KeyConditionExpression: 'entityType = :type',
-        ExpressionAttributeValues: { ':type': 'PALETTE' },
-        ExclusiveStartKey: lastKey,
-      }));
-      if (result.Items) items.push(...result.Items);
-      lastKey = result.LastEvaluatedKey;
-    } while (lastKey);
+    const items = await paginatedQuery({
+      IndexName: 'GSI-EntityType',
+      KeyConditionExpression: 'entityType = :type',
+      ExpressionAttributeValues: { ':type': 'PALETTE' },
+    });
 
     const palettes = items.map((item) => ({
       id: item.id,

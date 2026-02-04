@@ -1,26 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
-import { verifyIdToken, extractGroups } from '@/lib/auth/jwt-verify';
+import { requireAdmin } from '@/lib/api/require-admin';
+import { paginatedScan } from '@/lib/aws/dynamo-helpers';
 import * as XLSX from 'xlsx';
-
-async function getAllProducts() {
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const result = await docClient.send(new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'entityType = :type',
-      ExpressionAttributeValues: { ':type': 'PRODUCT' },
-      ExclusiveStartKey: lastKey,
-    }));
-    items.push(...(result.Items || []));
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey);
-
-  return items;
-}
 
 function escapeCSV(val: unknown): string {
   const str = String(val ?? '');
@@ -31,19 +12,15 @@ function escapeCSV(val: unknown): string {
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const token = request.cookies.get('bmdecor_id_token')?.value;
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    const payload = await verifyIdToken(token);
-    if (!extractGroups(payload).includes('Admin')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-  } catch {
+  try { await requireAdmin(request); } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
   const format = new URL(request.url).searchParams.get('format') || 'xlsx';
-  const products = await getAllProducts();
+  const products = await paginatedScan({
+    FilterExpression: 'entityType = :type',
+    ExpressionAttributeValues: { ':type': 'PRODUCT' },
+  });
   const date = new Date().toISOString().split('T')[0];
 
   const rows = products.map((p) => ({
@@ -74,7 +51,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Default: XLSX
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'BM Decoracion Catalog');

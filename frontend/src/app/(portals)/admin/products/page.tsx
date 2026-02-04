@@ -6,13 +6,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { Switch } from '@/components/ui/switch';
+import { DeleteConfirm } from '@/components/admin/delete-confirm';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -56,6 +53,9 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [page, setPage] = useState(0);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [priceValue, setPriceValue] = useState('');
+  const [savingField, setSavingField] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -91,6 +91,9 @@ export default function ProductsPage() {
     return true;
   });
 
+  const inStockCount = filtered.filter((p) => p.inStock).length;
+  const outOfStockCount = filtered.length - inStockCount;
+
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paged = filtered.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
@@ -106,6 +109,45 @@ export default function ProductsPage() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  const updateProduct = async (id: string, fields: Partial<Product>) => {
+    setSavingField(id);
+    try {
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      });
+      if (!res.ok) throw new Error();
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...fields } : p)),
+      );
+      return true;
+    } catch {
+      toast.error('Failed to update product');
+      return false;
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const handlePriceSave = async (id: string) => {
+    const parsed = parseFloat(priceValue);
+    if (isNaN(parsed) || parsed < 0) {
+      toast.error('Invalid price');
+      return;
+    }
+    const ok = await updateProduct(id, { priceEur: parsed });
+    if (ok) {
+      setEditingPrice(null);
+      toast.success('Price updated');
+    }
+  };
+
+  const handleStockToggle = async (id: string, checked: boolean) => {
+    const ok = await updateProduct(id, { inStock: checked });
+    if (ok) toast.success(checked ? 'Marked in stock' : 'Marked out of stock');
   };
 
   return (
@@ -178,6 +220,15 @@ export default function ProductsPage() {
           <option value="in-stock">In Stock</option>
           <option value="out-of-stock">Out of Stock</option>
         </select>
+
+        {/* Stock Summary */}
+        {!loading && (
+          <span className="text-xs text-[#2C2C2C]/50 ml-auto">
+            <span className="text-green-600 font-medium">{inStockCount}</span> in stock
+            {' / '}
+            <span className="text-red-500 font-medium">{outOfStockCount}</span> out of stock
+          </span>
+        )}
       </div>
 
       {/* Table */}
@@ -232,11 +283,59 @@ export default function ProductsPage() {
                   <TableCell className="text-xs text-[#2C2C2C]/50 capitalize">{p.productType}</TableCell>
                   {/* Volume */}
                   <TableCell className="text-xs text-[#2C2C2C]/50">{p.volume || '-'}</TableCell>
-                  {/* Price */}
-                  <TableCell className="text-sm text-[#2C2C2C] font-medium">€{(p.priceEur ?? 0).toFixed(2)}</TableCell>
-                  {/* Stock */}
+                  {/* Price — inline editable */}
                   <TableCell>
-                    <span className={`inline-block w-2 h-2 rounded-full ${p.inStock ? 'bg-green-500' : 'bg-red-400'}`} />
+                    {editingPrice === p.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-[#2C2C2C]/40">&euro;</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={priceValue}
+                          onChange={(e) => setPriceValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handlePriceSave(p.id);
+                            if (e.key === 'Escape') setEditingPrice(null);
+                          }}
+                          autoFocus
+                          className="w-20 px-1.5 py-0.5 text-sm border border-[#C9A86C] rounded bg-white focus:outline-none"
+                        />
+                        <button
+                          onClick={() => handlePriceSave(p.id)}
+                          disabled={savingField === p.id}
+                          className="text-green-600 hover:text-green-700 p-0.5"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingPrice(null)}
+                          className="text-[#2C2C2C]/40 hover:text-[#2C2C2C] p-0.5"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setEditingPrice(p.id);
+                          setPriceValue((p.priceEur ?? 0).toFixed(2));
+                        }}
+                        className="text-sm text-[#2C2C2C] font-medium hover:text-[#C9A86C] transition-colors cursor-pointer"
+                        title="Click to edit price"
+                      >
+                        &euro;{(p.priceEur ?? 0).toFixed(2)}
+                      </button>
+                    )}
+                  </TableCell>
+                  {/* Stock — toggle switch */}
+                  <TableCell>
+                    <Switch
+                      checked={p.inStock}
+                      onCheckedChange={(checked) => handleStockToggle(p.id, checked)}
+                      disabled={savingField === p.id}
+                      className="data-[state=checked]:bg-green-500"
+                    />
                   </TableCell>
                   {/* Actions */}
                   <TableCell>
@@ -246,31 +345,17 @@ export default function ProductsPage() {
                           <Pencil className="h-3.5 w-3.5" />
                         </Link>
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <DeleteConfirm
+                        title="Delete Product"
+                        description={`Are you sure you want to delete "${p.name}"? This action cannot be undone.`}
+                        onConfirm={() => handleDelete(p.id)}
+                        loading={deleting === p.id}
+                        trigger={
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-[#2C2C2C]/50 hover:text-red-500">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-[#FAF8F5]">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete &quot;{p.name}&quot;? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(p.id)}
-                              disabled={deleting === p.id}
-                              className="bg-red-500 hover:bg-red-600 text-white"
-                            >
-                              {deleting === p.id ? 'Deleting...' : 'Delete'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

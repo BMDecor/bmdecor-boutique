@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
-import { verifyIdToken, extractGroups } from '@/lib/auth/jwt-verify';
+import { requireAdmin } from '@/lib/api/require-admin';
 
 export async function GET(request: NextRequest) {
-  try {
-    const token = request.cookies.get('bmdecor_id_token')?.value;
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    const payload = await verifyIdToken(token);
-    if (!extractGroups(payload).includes('Admin')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-  } catch {
+  try { await requireAdmin(request); } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

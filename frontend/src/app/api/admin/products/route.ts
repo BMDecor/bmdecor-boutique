@@ -1,48 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ScanCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { requireAdmin } from '@/lib/api/require-admin';
+import { paginatedScan } from '@/lib/aws/dynamo-helpers';
 import { ulid } from 'ulid';
 
 export async function GET(request: NextRequest) {
-  try {
-    await requireAdmin(request);
-  } catch {
+  try { await requireAdmin(request); } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
   try {
-    const items: Record<string, unknown>[] = [];
-    let lastKey: Record<string, unknown> | undefined;
+    const items = await paginatedScan({
+      FilterExpression: 'entityType = :type',
+      ExpressionAttributeValues: { ':type': 'PRODUCT' },
+    });
 
-    do {
-      const result = await docClient.send(new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: 'entityType = :type',
-        ExpressionAttributeValues: { ':type': 'PRODUCT' },
-        ExclusiveStartKey: lastKey,
-      }));
-      for (const item of result.Items || []) {
-        items.push({
-          id: item.id,
-          brand: item.brand,
-          name: item.name,
-          colorCode: item.colorCode,
-          hexCode: item.hexCode,
-          priceEur: item.priceEur ?? 0,
-          productType: item.productType || 'paint',
-          inStock: item.inStock ?? true,
-          finishType: item.finishType,
-          volume: item.volume,
-          collection: item.collection,
-          description: item.description,
-          coverageRate: item.coverageRate,
-        });
-      }
-      lastKey = result.LastEvaluatedKey;
-    } while (lastKey);
+    const products = items.map((item) => ({
+      id: item.id,
+      brand: item.brand,
+      name: item.name,
+      colorCode: item.colorCode,
+      hexCode: item.hexCode,
+      priceEur: item.priceEur ?? 0,
+      productType: item.productType || 'paint',
+      inStock: item.inStock ?? true,
+      finishType: item.finishType,
+      volume: item.volume,
+      collection: item.collection,
+      description: item.description,
+      coverageRate: item.coverageRate,
+      createdAt: item.createdAt,
+    }));
 
-    return NextResponse.json(items);
+    return NextResponse.json(products);
   } catch (error) {
     console.error('Admin products GET:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
@@ -50,9 +41,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    await requireAdmin(request);
-  } catch {
+  try { await requireAdmin(request); } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

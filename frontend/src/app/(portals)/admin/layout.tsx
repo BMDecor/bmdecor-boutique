@@ -11,8 +11,6 @@ const navLinks = [
   { href: '/admin/orders', label: 'Orders', icon: '▤' },
   { href: '/admin/users', label: 'Users', icon: '◆' },
   { href: '/admin/images', label: 'Images', icon: '▣' },
-  { href: '/admin/pricing', label: 'Pricing', icon: '€' },
-  { href: '/admin/inventory', label: 'Inventory', icon: '▦' },
   { href: '/admin/exports', label: 'Exports', icon: '↓' },
   { href: '/admin/settings', label: 'Settings', icon: '⚙' },
 ];

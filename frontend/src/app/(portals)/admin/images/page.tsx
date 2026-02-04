@@ -4,11 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirm } from '@/components/admin/delete-confirm';
 import { toast } from 'sonner';
 import { Upload, Trash2, ImageIcon, Search } from 'lucide-react';
 
@@ -259,8 +255,11 @@ export default function ImagesPage() {
                       loading="lazy"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <DeleteConfirm
+                        title="Delete Image"
+                        description={`Delete "${img.filename}"? This cannot be undone.`}
+                        onConfirm={() => deleteImage(img.key)}
+                        trigger={
                           <Button
                             variant="ghost"
                             size="sm"
@@ -268,22 +267,8 @@ export default function ImagesPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-[#FAF8F5]">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Image</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Delete &quot;{img.filename}&quot;? This cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteImage(img.key)} className="bg-red-500 hover:bg-red-600 text-white">
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                      />
                     </div>
                   </div>
                   <div className="p-2">
