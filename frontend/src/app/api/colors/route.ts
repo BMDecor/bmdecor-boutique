@@ -28,8 +28,10 @@ export async function GET(request: NextRequest) {
             TableName: TABLE_NAME,
             IndexName: 'GSI-Brand',
             KeyConditionExpression: 'brand = :brand',
+            FilterExpression: 'entityType = :type',
             ExpressionAttributeValues: {
               ':brand': brand,
+              ':type': 'PRODUCT',
             },
             ExclusiveStartKey: lastKey,
           })

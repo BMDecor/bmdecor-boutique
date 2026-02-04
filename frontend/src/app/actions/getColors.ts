@@ -32,22 +32,26 @@ export interface ColorProduct {
  */
 export async function getColors(): Promise<ColorProduct[]> {
   try {
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: 'entityType = :type',
-        ExpressionAttributeValues: {
-          ':type': 'PRODUCT',
-        },
-      })
-    );
+    const allItems: Record<string, unknown>[] = [];
+    let lastKey: Record<string, unknown> | undefined;
 
-    if (!result.Items) {
-      return [];
-    }
+    do {
+      const result = await docClient.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: 'entityType = :type',
+          ExpressionAttributeValues: {
+            ':type': 'PRODUCT',
+          },
+          ExclusiveStartKey: lastKey,
+        })
+      );
+      if (result.Items) allItems.push(...result.Items);
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
 
     // Map DynamoDB items to ColorProduct interface
-    const colors: ColorProduct[] = result.Items.map((item) => ({
+    const colors: ColorProduct[] = allItems.map((item) => ({
       id: item.id as string,
       brand: item.brand as Brand,
       name: item.name as string,
@@ -81,22 +85,26 @@ export async function getColors(): Promise<ColorProduct[]> {
  */
 export async function getColorsByBrand(brand: Brand): Promise<ColorProduct[]> {
   try {
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: 'brand = :brand AND entityType = :type',
-        ExpressionAttributeValues: {
-          ':brand': brand,
-          ':type': 'PRODUCT',
-        },
-      })
-    );
+    const allItems: Record<string, unknown>[] = [];
+    let lastKey: Record<string, unknown> | undefined;
 
-    if (!result.Items) {
-      return [];
-    }
+    do {
+      const result = await docClient.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: 'brand = :brand AND entityType = :type',
+          ExpressionAttributeValues: {
+            ':brand': brand,
+            ':type': 'PRODUCT',
+          },
+          ExclusiveStartKey: lastKey,
+        })
+      );
+      if (result.Items) allItems.push(...result.Items);
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
 
-    const colors: ColorProduct[] = result.Items.map((item) => ({
+    const colors: ColorProduct[] = allItems.map((item) => ({
       id: item.id as string,
       brand: item.brand as Brand,
       name: item.name as string,
