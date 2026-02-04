@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { AuthProvider } from "@/lib/auth/auth-context";
 import { CartProvider } from "@/lib/cart/cart-context";
 import { CartDrawerLazy } from "@/components/cart/CartDrawerLazy";
 import "./globals.css";
@@ -36,10 +37,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} antialiased`}
       >
-        <CartProvider>
-          {children}
-          <CartDrawerLazy />
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            {children}
+            <CartDrawerLazy />
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

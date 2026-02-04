@@ -5,6 +5,8 @@
  *   PK: CART#GUEST_{uuid}  (or CART#USER_{cognitoId} for future auth)
  *   SK: SESSION             (cart session metadata)
  *   SK: ITEM#{compound}     (individual line items)
+ *
+ * Supports three product types: paint, wallpaper, accessory.
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -25,6 +27,7 @@ import type {
   CartItemResponse,
   CartResponse,
   AddToCartRequest,
+  CartProductType,
 } from './types';
 import type { ContainerSize } from './variant-config';
 
@@ -43,8 +46,20 @@ function cartPK(cartId: string): string {
   return `CART#GUEST_${cartId}`;
 }
 
-function itemSK(item: { colorNumber: string; productLine: string; sheen: string; size: string }): string {
-  return `ITEM#${item.colorNumber}#${item.productLine}#${item.sheen}#${item.size}`;
+export function resolveCartPK(cartId: string, isGuest: boolean): string {
+  return isGuest ? `CART#GUEST_${cartId}` : `CART#USER_${cartId}`;
+}
+
+function buildItemSK(req: AddToCartRequest): string {
+  const type = req.productType || 'paint';
+  switch (type) {
+    case 'wallpaper':
+      return `ITEM#wallpaper#${req.wallpaperId || req.designName}#${req.colourway || 'default'}`;
+    case 'accessory':
+      return `ITEM#accessory#${req.accessoryId || req.accessoryName}`;
+    default:
+      return `ITEM#paint#${req.colorNumber}#${req.productLine}#${req.sheen}#${req.size}`;
+  }
 }
 
 function ttl30Days(): number {
@@ -54,6 +69,12 @@ function ttl30Days(): number {
 function toItemResponse(entity: CartItemEntity): CartItemResponse {
   return {
     sk: entity.SK,
+    productType: entity.productType || 'paint',
+    brand: entity.brand,
+    quantity: entity.quantity,
+    unitPriceEur: entity.unitPriceEur,
+    lineTotalEur: entity.lineTotalEur,
+    // Paint
     colorNumber: entity.colorNumber,
     colorName: entity.colorName,
     hexCode: entity.hexCode,
@@ -61,11 +82,33 @@ function toItemResponse(entity: CartItemEntity): CartItemResponse {
     productNumber: entity.productNumber,
     sheen: entity.sheen,
     size: entity.size,
-    quantity: entity.quantity,
-    unitPriceEur: entity.unitPriceEur,
-    lineTotalEur: entity.lineTotalEur,
-    brand: entity.brand,
+    // Wallpaper
+    designName: entity.designName,
+    colourway: entity.colourway,
+    wallpaperId: entity.wallpaperId,
+    imageUrl: entity.imageUrl,
+    // Accessory
+    accessoryId: entity.accessoryId,
+    accessoryName: entity.accessoryName,
+    accessoryCategory: entity.accessoryCategory,
   };
+}
+
+function resolveUnitPrice(req: AddToCartRequest): number {
+  const type = req.productType || 'paint';
+  switch (type) {
+    case 'wallpaper':
+    case 'accessory':
+      // Use the price passed from the product catalog
+      return req.unitPriceEur ?? 0;
+    default:
+      // Server-side price enforcement for paint (brand + product-line-specific)
+      return getPriceForSize(
+        req.size as ContainerSize,
+        req.productLine,
+        req.brand,
+      );
+  }
 }
 
 // ─────────────────────────────────────────────────────────
@@ -75,7 +118,6 @@ function toItemResponse(entity: CartItemEntity): CartItemResponse {
 export async function getCart(cartId: string): Promise<CartResponse> {
   const pk = cartPK(cartId);
 
-  // Query all entities for this cart (session + items)
   const result = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -111,12 +153,12 @@ export async function getCart(cartId: string): Promise<CartResponse> {
 
 export async function addItem(cartId: string, req: AddToCartRequest): Promise<CartResponse> {
   const pk = cartPK(cartId);
-  const sk = itemSK(req);
+  const sk = buildItemSK(req);
   const now = new Date().toISOString();
   const ttl = ttl30Days();
+  const productType: CartProductType = req.productType || 'paint';
 
-  // Server-side price enforcement (product-line-specific pricing)
-  const unitPrice = getPriceForSize(req.size as ContainerSize, req.productLine);
+  const unitPrice = resolveUnitPrice(req);
 
   // Check if item already exists
   const existing = await docClient.send(
@@ -127,7 +169,6 @@ export async function addItem(cartId: string, req: AddToCartRequest): Promise<Ca
   );
 
   if (existing.Item) {
-    // Increment quantity
     const newQty = (existing.Item.quantity as number) + req.quantity;
     await docClient.send(
       new UpdateCommand({
@@ -143,11 +184,18 @@ export async function addItem(cartId: string, req: AddToCartRequest): Promise<Ca
       })
     );
   } else {
-    // Create new item
     const item: CartItemEntity = {
       PK: pk,
       SK: sk,
       entityType: 'CART_ITEM',
+      productType,
+      brand: req.brand,
+      quantity: req.quantity,
+      unitPriceEur: unitPrice,
+      lineTotalEur: Math.round(unitPrice * req.quantity * 100) / 100,
+      addedAt: now,
+      ttl,
+      // Paint fields
       colorNumber: req.colorNumber,
       colorName: req.colorName,
       hexCode: req.hexCode,
@@ -155,12 +203,15 @@ export async function addItem(cartId: string, req: AddToCartRequest): Promise<Ca
       productNumber: req.productNumber,
       sheen: req.sheen,
       size: req.size,
-      quantity: req.quantity,
-      unitPriceEur: unitPrice,
-      lineTotalEur: Math.round(unitPrice * req.quantity * 100) / 100,
-      brand: req.brand,
-      addedAt: now,
-      ttl,
+      // Wallpaper fields
+      designName: req.designName,
+      colourway: req.colourway,
+      wallpaperId: req.wallpaperId,
+      imageUrl: req.imageUrl,
+      // Accessory fields
+      accessoryId: req.accessoryId,
+      accessoryName: req.accessoryName,
+      accessoryCategory: req.accessoryCategory,
     };
 
     await docClient.send(
@@ -168,7 +219,6 @@ export async function addItem(cartId: string, req: AddToCartRequest): Promise<Ca
     );
   }
 
-  // Update session totals
   await recalculateSession(cartId);
   return getCart(cartId);
 }
@@ -189,7 +239,6 @@ export async function updateItemQuantity(
     return removeItem(cartId, sk);
   }
 
-  // Get item to find unit price
   const existing = await docClient.send(
     new GetCommand({ TableName: TABLE_NAME, Key: { PK: pk, SK: sk } })
   );
@@ -242,7 +291,6 @@ async function recalculateSession(cartId: string): Promise<void> {
   const now = new Date().toISOString();
   const ttl = ttl30Days();
 
-  // Query all items
   const result = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -276,14 +324,72 @@ async function recalculateSession(cartId: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────
-// MERGE CARTS (dormant — for future Cognito integration)
+// AUTH-AWARE CART HELPERS
+// ─────────────────────────────────────────────────────────
+
+export async function getCartForUser(userId: string): Promise<CartResponse> {
+  const pk = `CART#USER_${userId}`;
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk',
+      ExpressionAttributeValues: { ':pk': pk },
+    })
+  );
+
+  const items: CartItemResponse[] = [];
+  let itemCount = 0;
+  let subtotalEur = 0;
+
+  for (const entity of result.Items || []) {
+    if (entity.entityType === 'CART_ITEM') {
+      const item = toItemResponse(entity as CartItemEntity);
+      items.push(item);
+      itemCount += item.quantity;
+      subtotalEur += item.lineTotalEur;
+    }
+  }
+
+  return { cartId: userId, itemCount, subtotalEur: Math.round(subtotalEur * 100) / 100, items };
+}
+
+export async function recalculateUserSession(userId: string): Promise<void> {
+  const pk = `CART#USER_${userId}`;
+  const now = new Date().toISOString();
+  const ttl = ttl30Days();
+
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      ExpressionAttributeValues: { ':pk': pk, ':prefix': 'ITEM#' },
+    })
+  );
+
+  let itemCount = 0;
+  let subtotalEur = 0;
+  for (const item of result.Items || []) {
+    itemCount += (item.quantity as number) || 0;
+    subtotalEur += (item.lineTotalEur as number) || 0;
+  }
+
+  const session: CartSessionEntity = {
+    PK: pk, SK: 'SESSION', entityType: 'CART_SESSION',
+    itemCount, subtotalEur: Math.round(subtotalEur * 100) / 100,
+    createdAt: now, updatedAt: now, ttl,
+  };
+
+  await docClient.send(new PutCommand({ TableName: TABLE_NAME, Item: session }));
+}
+
+// ─────────────────────────────────────────────────────────
+// MERGE CARTS (activated by /api/auth/merge-cart)
 // ─────────────────────────────────────────────────────────
 
 export async function mergeCarts(guestId: string, userId: string): Promise<void> {
   const guestPK = `CART#GUEST_${guestId}`;
   const userPK = `CART#USER_${userId}`;
 
-  // Query all guest items
   const guestItems = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -294,14 +400,12 @@ export async function mergeCarts(guestId: string, userId: string): Promise<void>
 
   if (!guestItems.Items || guestItems.Items.length === 0) return;
 
-  // Move items to user PK (batch write)
   const writeRequests = guestItems.Items.map((item) => ({
     PutRequest: {
       Item: { ...item, PK: userPK },
     },
   }));
 
-  // Batch write in chunks of 25
   for (let i = 0; i < writeRequests.length; i += 25) {
     const chunk = writeRequests.slice(i, i + 25);
     await docClient.send(
@@ -311,7 +415,6 @@ export async function mergeCarts(guestId: string, userId: string): Promise<void>
     );
   }
 
-  // Delete guest items
   const deleteRequests = guestItems.Items.map((item) => ({
     DeleteRequest: {
       Key: { PK: item.PK, SK: item.SK },
@@ -327,7 +430,6 @@ export async function mergeCarts(guestId: string, userId: string): Promise<void>
     );
   }
 
-  // Delete guest session
   await docClient.send(
     new DeleteCommand({ TableName: TABLE_NAME, Key: { PK: guestPK, SK: 'SESSION' } })
   );
