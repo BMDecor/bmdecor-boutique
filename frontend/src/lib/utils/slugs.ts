@@ -26,31 +26,48 @@ export function createSlug(product: SlugProduct): string {
 /**
  * Parse a slug back into its components.
  * Returns null if the slug format is invalid.
+ *
+ * Handles multiple code formats:
+ * - BM: oc-65, hc-172, 2163-10, af-705 (two segments)
+ * - FB: no9908, no2005 (single alphanumeric segment like "No.9908")
+ * - LG: numeric codes like 113, 50 (single numeric segment)
  */
 export function parseSlug(slug: string): { brand: string; nameSlug: string; codeSlug: string } | null {
-  // Expected format: brand-name-words-code-suffix
-  // Brand is first segment, code is typically last 1-2 segments
   const parts = slug.split('-');
   if (parts.length < 3) return null;
 
   const brand = parts[0].toUpperCase();
-
-  // The code is typically at the end (e.g., "oc-65" or "2163-10")
-  // Try to find where the code starts by looking for patterns
-  // Common BM patterns: OC-65, HC-172, 2163-10, AF-705
   let codeStartIndex = -1;
 
-  for (let i = parts.length - 1; i >= 1; i--) {
+  // Pattern 1: Two-segment codes like "oc-65", "hc-172", "2163-10"
+  // Look for numeric final segment preceded by letter/number prefix
+  for (let i = parts.length - 1; i >= 2; i--) {
     const segment = parts[i];
-    const prevSegment = i > 0 ? parts[i - 1] : '';
+    const prevSegment = parts[i - 1];
 
-    // Check if this looks like the end of a code (numeric)
     if (/^\d+$/.test(segment)) {
-      // Check if previous segment is a code prefix (letters or numbers)
+      // Previous segment is letters (oc, hc, af) or numbers (2163)
       if (/^[a-z]+$/.test(prevSegment) || /^\d+$/.test(prevSegment)) {
         codeStartIndex = i - 1;
         break;
       }
+    }
+  }
+
+  // Pattern 2: Single alphanumeric segment like "no9908" (FB codes: No.9908)
+  // Format: letters followed by numbers
+  if (codeStartIndex === -1) {
+    const lastPart = parts[parts.length - 1];
+    if (/^[a-z]+\d+$/.test(lastPart)) {
+      codeStartIndex = parts.length - 1;
+    }
+  }
+
+  // Pattern 3: Single numeric segment like "113" or "50" (LG codes)
+  if (codeStartIndex === -1) {
+    const lastPart = parts[parts.length - 1];
+    if (/^\d+$/.test(lastPart) && parts.length >= 3) {
+      codeStartIndex = parts.length - 1;
     }
   }
 
