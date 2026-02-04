@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         id,
         question: body.question || '',
         answer: body.answer || '',
-        categoryId: body.categoryId || null,
+        categoryId: body.categoryId || undefined,
         sortOrder: body.sortOrder ?? 0,
         isPublished: body.isPublished ?? false,
         createdAt: now,
@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
-    console.error('FAQs POST:', error);
-    return NextResponse.json({ error: 'Failed to create FAQ' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('FAQs POST:', msg, error);
+    return NextResponse.json({ error: `Failed to create FAQ: ${msg}` }, { status: 500 });
   }
 }

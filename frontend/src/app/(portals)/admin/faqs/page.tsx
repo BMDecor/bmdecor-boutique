@@ -70,17 +70,20 @@ export default function AdminFaqsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: newQuestion.trim(),
-          categoryId: newCategoryId || null,
+          categoryId: newCategoryId || undefined,
           sortOrder: faqs.length,
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       toast.success('FAQ created');
       setNewQuestion('');
       setNewCategoryId('');
       loadData();
-    } catch {
-      toast.error('Failed to create FAQ');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create FAQ');
     } finally {
       setCreatingFaq(false);
     }
