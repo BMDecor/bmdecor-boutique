@@ -40,14 +40,18 @@ export function parseSlug(slug: string): { brand: string; nameSlug: string; code
   let codeStartIndex = -1;
 
   // Pattern 1: Two-segment codes like "oc-65", "hc-172", "2163-10"
-  // Look for numeric final segment preceded by letter/number prefix
+  // Look for numeric final segment preceded by SHORT letter/number prefix (2-4 chars)
+  // This avoids matching product names like "acorn-87" where "acorn" is the name
   for (let i = parts.length - 1; i >= 2; i--) {
     const segment = parts[i];
     const prevSegment = parts[i - 1];
 
     if (/^\d+$/.test(segment)) {
-      // Previous segment is letters (oc, hc, af) or numbers (2163)
-      if (/^[a-z]+$/.test(prevSegment) || /^\d+$/.test(prevSegment)) {
+      // Previous segment is a SHORT code prefix: 2-4 letter codes (oc, hc, af) or numbers (2163)
+      if (
+        (/^[a-z]{2,4}$/.test(prevSegment) && prevSegment.length <= 4) ||
+        /^\d+$/.test(prevSegment)
+      ) {
         codeStartIndex = i - 1;
         break;
       }
