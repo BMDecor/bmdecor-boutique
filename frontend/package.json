@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.982.0",
     "@aws-sdk/client-dynamodb": "^3.980.0",
     "@aws-sdk/client-secrets-manager": "^3.981.0",
     "@aws-sdk/credential-providers": "^3.980.0",

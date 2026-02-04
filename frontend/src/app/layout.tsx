@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { CartProvider } from "@/lib/cart/cart-context";
 import { CartDrawerLazy } from "@/components/cart/CartDrawerLazy";
+import CookieConsent from "@/components/privacy/CookieConsent";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,6 +43,8 @@ export default function RootLayout({
           <CartProvider>
             {children}
             <CartDrawerLazy />
+            <CookieConsent />
+            <Toaster />
           </CartProvider>
         </AuthProvider>
       </body>

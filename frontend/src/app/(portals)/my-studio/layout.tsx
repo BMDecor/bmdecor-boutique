@@ -8,6 +8,7 @@ const tabs = [
   { href: '/my-studio', label: 'Overview' },
   { href: '/my-studio/orders', label: 'Orders' },
   { href: '/my-studio/projects', label: 'Projects' },
+  { href: '/my-studio/profile', label: 'Profile' },
 ];
 
 export default function MyStudioLayout({ children }: { children: React.ReactNode }) {
