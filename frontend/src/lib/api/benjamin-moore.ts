@@ -111,12 +111,9 @@ export interface BMColor {
   collection?: string;
 }
 
-export interface RoomScene {
-  id: string;
-  name: string;
-  imageUrl: string;
-  roomType: 'living-room' | 'bedroom' | 'kitchen' | 'bathroom' | 'dining-room' | 'office';
-}
+// Import + re-export from shared module (used by BM page + API routes)
+import { ROOM_SCENES, type RoomScene } from '@/lib/visualizer/room-scenes';
+export { ROOM_SCENES, type RoomScene };
 
 export interface ComplementaryResult {
   type: string;
@@ -363,25 +360,6 @@ export async function discoverComplementaryColors(
 // ─────────────────────────────────────────────────────────
 // VISUALIZER (color-tinted room previews)
 // ─────────────────────────────────────────────────────────
-
-/**
- * Marbella Room Set — local architectural SVG scenes.
- *
- * BM Photo/RenderRoom API returned 404 across 30+ endpoint probes on both
- * Stage and Production. BM's "Color a Room" is a browser-only compositing
- * tool with no server-side API. These local SVGs are designed with white/light
- * walls so CSS mix-blend-mode: multiply tints them with the selected color.
- *
- * To upgrade: replace SVG paths with S3-hosted photography URLs.
- */
-const ROOM_SCENES: RoomScene[] = [
-  { id: 'living-1', name: 'Modern Living Room', roomType: 'living-room', imageUrl: '/rooms/living-room.svg' },
-  { id: 'bedroom-1', name: 'Serene Bedroom', roomType: 'bedroom', imageUrl: '/rooms/bedroom.svg' },
-  { id: 'kitchen-1', name: 'Contemporary Kitchen', roomType: 'kitchen', imageUrl: '/rooms/kitchen.svg' },
-  { id: 'bathroom-1', name: 'Spa Bathroom', roomType: 'bathroom', imageUrl: '/rooms/bathroom.svg' },
-  { id: 'dining-1', name: 'Elegant Dining Room', roomType: 'dining-room', imageUrl: '/rooms/dining-room.svg' },
-  { id: 'office-1', name: 'Home Office', roomType: 'office', imageUrl: '/rooms/office.svg' },
-];
 
 export async function getVisualizerScenes(
   _colorNumber: string,
