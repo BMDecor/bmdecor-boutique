@@ -5,19 +5,23 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import {
   Bold, Italic, Heading2, Heading3, List, ListOrdered,
-  Quote, Code, Minus, Link as LinkIcon, ImageIcon, Undo, Redo,
+  Quote, Code, Minus, Link as LinkIcon, ImageIcon, Undo, Redo, X,
 } from 'lucide-react';
+import { ImageUploader } from './ImageUploader';
 
 interface RichTextEditorProps {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  imageFolder?: 'journal' | 'heroes' | 'branding';
 }
 
-export function RichTextEditor({ content, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, placeholder, imageFolder = 'journal' }: RichTextEditorProps) {
+  const [showImageUploader, setShowImageUploader] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -61,6 +65,16 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
   }, [editor]);
 
   const addImage = useCallback(() => {
+    setShowImageUploader(true);
+  }, []);
+
+  const handleImageUploaded = useCallback((url: string) => {
+    if (!editor) return;
+    editor.chain().focus().setImage({ src: url }).run();
+    setShowImageUploader(false);
+  }, [editor]);
+
+  const addImageFromUrl = useCallback(() => {
     if (!editor) return;
     const url = window.prompt('Enter image URL:');
     if (url) {
@@ -139,6 +153,45 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
 
       {/* Editor */}
       <EditorContent editor={editor} />
+
+      {/* Image Uploader Modal */}
+      {showImageUploader && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2C2C2C]/10">
+              <h3 className="font-medium text-[#2C2C2C]">Insert Image</h3>
+              <button
+                type="button"
+                onClick={() => setShowImageUploader(false)}
+                className="p-1 rounded hover:bg-[#2C2C2C]/5 text-[#2C2C2C]/50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <ImageUploader
+                folder={imageFolder}
+                onUploadComplete={handleImageUploaded}
+              />
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-[#2C2C2C]/10" />
+                <span className="text-xs text-[#2C2C2C]/30">or</span>
+                <div className="flex-1 h-px bg-[#2C2C2C]/10" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImageUploader(false);
+                  addImageFromUrl();
+                }}
+                className="w-full px-4 py-2 text-sm border border-[#2C2C2C]/15 rounded-lg text-[#2C2C2C]/60 hover:border-[#C9A86C] hover:text-[#C9A86C] transition-colors"
+              >
+                Paste image URL instead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

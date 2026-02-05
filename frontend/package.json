@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "gen-keys": "sh scripts/create-vercel-keys.sh",
-    "update-perms": "sh scripts/update-vercel-permissions.sh"
+    "update-perms": "sh scripts/update-vercel-permissions.sh",
+    "provision-s3": "node scripts/provision-s3.js"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.982.0",
@@ -37,6 +38,7 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-dropzone": "^14.4.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "ulid": "^3.0.2",
