@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { createSlug } from '@/lib/utils/slugs';
+import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
 interface SearchResult {
   id: string;
@@ -264,7 +265,7 @@ export default function BrandSearchBar({
                           {result.collection && (
                             <>
                               <span>·</span>
-                              <span className="truncate">{result.collection}</span>
+                              <span className="truncate">{decodeHtmlEntities(result.collection)}</span>
                             </>
                           )}
                         </div>
