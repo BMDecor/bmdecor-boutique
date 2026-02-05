@@ -10,6 +10,7 @@ import MetricVariantSelector from '@/components/cart/MetricVariantSelector';
 import type { MetricSelectedVariant } from '@/components/cart/MetricVariantSelector';
 import AddToBagButton from '@/components/cart/AddToBagButton';
 import StickySubtotalBar from '@/components/cart/StickySubtotalBar';
+import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
 interface ColorProduct {
   id: string;
@@ -131,10 +132,10 @@ export default function StandardColorView({
           <div className="lg:w-1/2 space-y-6">
             <div>
               <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-semibold text-[#2C2C2C]">
-                {product.name}
+                {decodeHtmlEntities(product.name)}
               </h1>
               <p className="text-lg text-[#2C2C2C]/60 mt-2">
-                {product.colorCode} · {product.collection}
+                {product.colorCode} · {decodeHtmlEntities(product.collection)}
               </p>
             </div>
 

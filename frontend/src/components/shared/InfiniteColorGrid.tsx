@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { createSlug } from '@/lib/utils/slugs';
+import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
 // ─────────────────────────────────────────────────────────
 // TYPES
@@ -127,7 +128,7 @@ function ColorCard({ color, accentColor }: { color: ColorItem; accentColor: stri
             <h3 className="font-medium text-foreground leading-tight line-clamp-1">
               {color.name}
             </h3>
-            <p className="text-xs text-muted-foreground">{color.collection}</p>
+            <p className="text-xs text-muted-foreground">{decodeHtmlEntities(color.collection)}</p>
             <div className="flex items-center justify-between pt-2">
               <span className="text-sm font-semibold" style={{ color: accentColor }}>
                 &euro;{color.priceEur.toFixed(2)}

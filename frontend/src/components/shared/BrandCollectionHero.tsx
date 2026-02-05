@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
 /**
  * Collection Hero Navigation Component
@@ -292,10 +293,10 @@ export default function BrandCollectionHero({
               <div className="relative z-10 min-h-[80px] flex flex-col justify-between">
                 <div>
                   <h3 className="font-semibold text-white text-sm leading-tight drop-shadow-md">
-                    {collection.name}
+                    {decodeHtmlEntities(collection.name)}
                   </h3>
                   <p className="text-white/80 text-xs mt-1 line-clamp-2 drop-shadow">
-                    {collection.description}
+                    {decodeHtmlEntities(collection.description)}
                   </p>
                 </div>
 

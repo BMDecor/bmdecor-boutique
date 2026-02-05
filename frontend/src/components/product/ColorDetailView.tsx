@@ -17,6 +17,7 @@ import AddToBagButton from '@/components/cart/AddToBagButton';
 import StickySubtotalBar from '@/components/cart/StickySubtotalBar';
 import CalculatorCartBridge from '@/components/cart/CalculatorCartBridge';
 import { createSlug } from '@/lib/utils/slugs';
+import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
 interface ColorProduct {
   id: string;
@@ -108,9 +109,7 @@ function getTextColor(hex: string): string {
 }
 
 function cleanCollectionName(name: string): string {
-  return name
-    .replace(/&reg;/g, '\u00AE')
-    .replace(/&trade;/g, '\u2122')
+  return decodeHtmlEntities(name)
     .replace(/<[^>]+>/g, '')
     .replace(/\s+Color Collection$/i, '')
     .replace(/\s+Colors$/i, '')
@@ -501,10 +500,10 @@ export default function ColorDetailView({ product, brandName, allBrandColors }: 
               </div>
               <CardContent className="p-4 bg-white">
                 <h1 className="font-[family-name:var(--font-playfair)] text-xl font-semibold text-[#2C2C2C]">
-                  {product.name}
+                  {decodeHtmlEntities(product.name)}
                 </h1>
                 <p className="text-sm text-[#2C2C2C]/50 mt-1">
-                  {product.colorCode} · {product.collection}
+                  {product.colorCode} · {decodeHtmlEntities(product.collection)}
                 </p>
                 <div className="flex items-center gap-2 mt-3">
                   <span className="text-lg font-semibold text-[#C9A86C]">
@@ -724,7 +723,7 @@ export default function ColorDetailView({ product, brandName, allBrandColors }: 
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm py-2 border-b border-gray-100">
                         <span className="text-muted-foreground">Collection</span>
-                        <span className="font-medium">{product.collection}</span>
+                        <span className="font-medium">{decodeHtmlEntities(product.collection)}</span>
                       </div>
                       <div className="flex justify-between text-sm py-2 border-b border-gray-100">
                         <span className="text-muted-foreground">Finish</span>
