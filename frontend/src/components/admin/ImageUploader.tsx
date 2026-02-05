@@ -28,52 +28,26 @@ export function ImageUploader({ onUploadComplete, folder, className = '' }: Imag
       const previewUrl = URL.createObjectURL(file);
       setPreview(previewUrl);
 
-      // Get presigned URL
+      // Upload via server proxy (avoids browser CORS issues with S3)
       setProgress(10);
-      let res;
-      try {
-        res = await fetch('/api/admin/upload-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            filename: file.name,
-            fileType: file.type,
-            folder,
-            fileSize: file.size,
-          }),
-        });
-      } catch (fetchErr) {
-        throw new Error(`API request failed: ${fetchErr instanceof Error ? fetchErr.message : 'Network error'}`);
-      }
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      setProgress(80);
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `API error: ${res.status} ${res.statusText}`);
+        throw new Error(data.error || `Upload error: ${res.status} ${res.statusText}`);
       }
 
-      const { uploadUrl, publicUrl } = await res.json();
-      setProgress(30);
-
-      // Upload to S3
-      let uploadRes;
-      try {
-        uploadRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          mode: 'cors',
-          headers: {
-            'Content-Type': file.type,
-          },
-          body: file,
-        });
-      } catch (s3Err) {
-        throw new Error(`S3 upload failed: ${s3Err instanceof Error ? s3Err.message : 'Network error'}`);
-      }
-
-      if (!uploadRes.ok) {
-        const s3Text = await uploadRes.text().catch(() => '');
-        throw new Error(`S3 error ${uploadRes.status}: ${s3Text.substring(0, 100)}`);
-      }
+      const { publicUrl } = await res.json();
 
       setProgress(100);
       setStatus('success');

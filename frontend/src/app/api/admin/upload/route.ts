@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, BUCKET_NAME } from '@/lib/aws/s3-client';
 import { requireAdmin } from '@/lib/api/require-admin';
 
@@ -34,13 +33,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
-    const { filename, fileType, folder, fileSize } = body;
+    const formData = await request.formData();
+    const file = formData.get('file') as File | null;
+    const folder = formData.get('folder') as string | null;
 
-    // Validate required fields
-    if (!filename || !fileType || !folder) {
+    if (!file || !folder) {
       return NextResponse.json(
-        { error: 'Missing required fields: filename, fileType, folder' },
+        { error: 'Missing required fields: file, folder' },
         { status: 400 }
       );
     }
@@ -54,15 +53,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    if (!ALLOWED_TYPES.includes(fileType)) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: `Invalid file type. Allowed: ${ALLOWED_TYPES.join(', ')}` },
         { status: 400 }
       );
     }
 
-    // Validate file size if provided
-    if (fileSize && fileSize > MAX_FILE_SIZE) {
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB` },
         { status: 400 }
@@ -70,36 +69,44 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique key
-    const sanitizedFilename = sanitizeFilename(filename);
+    const sanitizedFilename = sanitizeFilename(file.name);
     const key = `${folder}/${Date.now()}-${sanitizedFilename}`;
 
-    // Generate presigned URL (without ContentType to avoid signature mismatch)
+    console.log('[upload] Processing file:', file.name, 'size:', file.size, 'type:', file.type);
+    console.log('[upload] Target bucket:', BUCKET_NAME, 'key:', key);
+
+    // Convert File to Uint8Array (works in all runtimes)
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Upload to S3
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
+      Body: uint8Array,
+      ContentType: file.type,
     });
 
-    console.log('[upload-url] Generating presigned URL for bucket:', BUCKET_NAME, 'key:', key, 'fileType:', fileType);
-
-    const uploadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 300, // 5 minutes
-    });
+    console.log('[upload] Sending to S3...');
+    await s3Client.send(command);
 
     // Construct public URL
     const region = process.env.BMDECOR_AWS_REGION || process.env.AWS_REGION || 'eu-west-1';
     const publicUrl = `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
 
-    console.log('[upload-url] Success - publicUrl:', publicUrl);
+    console.log('[upload] Success - publicUrl:', publicUrl);
 
     return NextResponse.json({
-      uploadUrl,
       publicUrl,
       key,
     });
   } catch (error) {
-    console.error('Upload URL generation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.name : 'Error';
+    console.error('[upload] Error:', errorName, errorMessage);
+    console.error('[upload] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     return NextResponse.json(
-      { error: 'Failed to generate upload URL' },
+      { error: `Upload failed: ${errorMessage}` },
       { status: 500 }
     );
   }

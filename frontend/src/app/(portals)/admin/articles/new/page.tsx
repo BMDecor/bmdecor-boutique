@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { RichTextEditor } from '@/components/admin/rich-text-editor';
+import { ImageUploader } from '@/components/admin/ImageUploader';
 import { toast } from 'sonner';
 import { ArrowLeft, X } from 'lucide-react';
 
@@ -248,10 +249,23 @@ export default function NewArticlePage() {
 
             <div className="bg-white rounded-lg border border-[#2C2C2C]/8 p-4 space-y-3">
               <h3 className="text-sm font-medium text-[#2C2C2C]">Featured Image</h3>
-              <Input value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Image URL" className="text-sm" />
-              {featuredImage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={featuredImage} alt="Featured" className="w-full h-32 object-cover rounded border border-[#2C2C2C]/10" />
+              {featuredImage ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={featuredImage} alt="Featured" className="w-full h-32 object-cover rounded border border-[#2C2C2C]/10" />
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedImage('')}
+                    className="absolute top-2 right-2 p-1 bg-white/90 rounded-full shadow-sm hover:bg-white"
+                  >
+                    <X className="h-4 w-4 text-[#2C2C2C]/60" />
+                  </button>
+                </div>
+              ) : (
+                <ImageUploader
+                  folder="journal"
+                  onUploadComplete={(url) => setFeaturedImage(url)}
+                />
               )}
             </div>
 
