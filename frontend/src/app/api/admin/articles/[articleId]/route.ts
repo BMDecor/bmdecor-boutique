@@ -31,6 +31,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       excerpt: item.excerpt || '',
       featuredImage: item.featuredImage || '',
       categoryId: item.categoryId || null,
+      relatedBrand: item.relatedBrand || null,
       tags: item.tags || [],
       status: item.status || 'draft',
       author: item.author || '',
@@ -60,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
 
     const updateParams = buildDynamicUpdate(body, [
       'title', 'slug', 'content', 'excerpt', 'featuredImage',
-      'categoryId', 'tags', 'status', 'author', 'publishedAt',
+      'categoryId', 'relatedBrand', 'tags', 'status', 'author', 'publishedAt',
     ]);
 
     await docClient.send(new UpdateCommand({

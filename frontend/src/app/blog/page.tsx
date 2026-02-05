@@ -13,8 +13,21 @@ interface Article {
   tags: string[];
   author: string;
   publishedAt: string;
+  relatedBrand: string | null;
   category: { name: string; slug: string } | null;
 }
+
+const BRAND_LABELS: Record<string, string> = {
+  BM: 'Benjamin Moore',
+  FB: 'Farrow & Ball',
+  LG: 'Little Greene',
+};
+
+const BRAND_COLORS: Record<string, string> = {
+  BM: '#C9A86C',
+  FB: '#8B7355',
+  LG: '#4A5240',
+};
 
 export default function BlogPage() {
   return (
@@ -35,6 +48,7 @@ function BlogContent() {
 
   const categoryFilter = searchParams.get('category');
   const tagFilter = searchParams.get('tag');
+  const brandFilter = searchParams.get('brand');
 
   useEffect(() => {
     async function load() {
@@ -42,6 +56,7 @@ function BlogContent() {
         const params = new URLSearchParams();
         if (categoryFilter) params.set('category', categoryFilter);
         if (tagFilter) params.set('tag', tagFilter);
+        if (brandFilter) params.set('brand', brandFilter);
         const qs = params.toString();
         const res = await fetch(`/api/articles${qs ? `?${qs}` : ''}`);
         if (res.ok) setArticles(await res.json());
@@ -52,7 +67,16 @@ function BlogContent() {
       }
     }
     load();
-  }, [categoryFilter, tagFilter]);
+  }, [categoryFilter, tagFilter, brandFilter]);
+
+  // Dynamic title based on brand filter
+  const pageTitle = brandFilter && BRAND_LABELS[brandFilter]
+    ? `Journal: ${BRAND_LABELS[brandFilter]}`
+    : 'Journal';
+
+  const accentColor = brandFilter && BRAND_COLORS[brandFilter]
+    ? BRAND_COLORS[brandFilter]
+    : '#C9A86C';
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
@@ -68,20 +92,30 @@ function BlogContent() {
       {/* Header */}
       <header className="border-b border-[#2C2C2C]/8 bg-white">
         <div className="max-w-5xl mx-auto px-6 py-12">
-          <Link href="/" className="text-xs text-[#C9A86C] tracking-[0.2em] uppercase hover:text-[#B8975B]">
+          <Link href="/" className="text-xs tracking-[0.2em] uppercase hover:opacity-70" style={{ color: accentColor }}>
             BM Decoracion
           </Link>
           <h1 className="font-[family-name:var(--font-playfair)] text-4xl text-[#2C2C2C] mt-4">
-            Journal
+            {pageTitle}
           </h1>
           <p className="text-[#2C2C2C]/50 mt-2 max-w-xl">
-            Design inspiration, paint guides, and the latest from our Marbella atelier.
+            {brandFilter && BRAND_LABELS[brandFilter]
+              ? `Design inspiration, guides, and the latest from ${BRAND_LABELS[brandFilter]}.`
+              : 'Design inspiration, paint guides, and the latest from our Marbella atelier.'}
           </p>
-          {(categoryFilter || tagFilter) && (
+          {(categoryFilter || tagFilter || brandFilter) && (
             <div className="flex items-center gap-2 mt-4">
               <span className="text-xs text-[#2C2C2C]/40">Filtered by:</span>
+              {brandFilter && BRAND_LABELS[brandFilter] && (
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
+                >
+                  {BRAND_LABELS[brandFilter]}
+                </span>
+              )}
               {categoryFilter && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#C9A86C]/10 text-[#C9A86C]">
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${accentColor}10`, color: accentColor }}>
                   {categoryFilter}
                 </span>
               )}
@@ -91,7 +125,7 @@ function BlogContent() {
                 </span>
               )}
               <Link href="/blog" className="text-xs text-[#2C2C2C]/30 hover:text-[#2C2C2C] underline underline-offset-2 ml-2">
-                Clear
+                View All
               </Link>
             </div>
           )}
@@ -138,8 +172,11 @@ function BlogContent() {
                       {formatDate(article.publishedAt)}
                     </span>
                   </div>
-                  <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] group-hover:text-[#C9A86C] transition-colors">
-                    {article.title}
+                  <h2
+                    className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] transition-colors"
+                    style={{ '--hover-color': accentColor } as React.CSSProperties}
+                  >
+                    <span className="group-hover:text-[var(--hover-color)]">{article.title}</span>
                   </h2>
                   {article.excerpt && (
                     <p className="text-sm text-[#2C2C2C]/60 line-clamp-3">{article.excerpt}</p>

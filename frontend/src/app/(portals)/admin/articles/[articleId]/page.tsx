@@ -30,11 +30,19 @@ interface ArticleForm {
   excerpt: string;
   featuredImage: string;
   categoryId: string;
+  relatedBrand: string;
   tags: string[];
   status: 'draft' | 'published';
   author: string;
   publishedAt: string | null;
 }
+
+const BRAND_OPTIONS = [
+  { value: '', label: 'General (No Brand)' },
+  { value: 'BM', label: 'Benjamin Moore' },
+  { value: 'FB', label: 'Farrow & Ball' },
+  { value: 'LG', label: 'Little Greene' },
+];
 
 function slugify(text: string): string {
   return text
@@ -64,6 +72,7 @@ export default function EditArticlePage() {
     excerpt: '',
     featuredImage: '',
     categoryId: '',
+    relatedBrand: '',
     tags: [],
     status: 'draft',
     author: '',
@@ -82,6 +91,7 @@ export default function EditArticlePage() {
         excerpt: data.excerpt || '',
         featuredImage: data.featuredImage || '',
         categoryId: data.categoryId || '',
+        relatedBrand: data.relatedBrand || '',
         tags: data.tags || [],
         status: data.status || 'draft',
         author: data.author || '',
@@ -144,6 +154,7 @@ export default function EditArticlePage() {
         body: JSON.stringify({
           ...form,
           categoryId: form.categoryId || null,
+          relatedBrand: form.relatedBrand || null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -263,6 +274,23 @@ export default function EditArticlePage() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Related Brand */}
+            <div className="bg-white rounded-lg border border-[#2C2C2C]/8 p-4 space-y-3">
+              <h3 className="text-sm font-medium text-[#2C2C2C]">Related Brand</h3>
+              <select
+                value={form.relatedBrand}
+                onChange={(e) => set('relatedBrand', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-[#2C2C2C]/15 rounded-lg bg-white focus:outline-none focus:border-[#C9A86C]"
+              >
+                {BRAND_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[#2C2C2C]/40">
+                Tag this article to appear on a brand&apos;s journal page.
+              </p>
             </div>
 
             {/* Tags */}

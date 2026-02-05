@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
@@ -143,6 +144,13 @@ const BRAND_ACCENTS: Record<string, { accent: string; bg: string }> = {
   BM: { accent: '#C9A86C', bg: '#2C2C2C' },
   FB: { accent: '#F5F1EB', bg: '#8B7355' },
   LG: { accent: '#E8E4D9', bg: '#4A5240' },
+};
+
+// Brand names for journal link
+const BRAND_NAMES: Record<string, string> = {
+  BM: 'Benjamin Moore',
+  FB: 'Farrow & Ball',
+  LG: 'Little Greene',
 };
 
 // Generate a gradient from actual hex colors
@@ -333,6 +341,20 @@ export default function BrandCollectionHero({
 
   return (
     <section className="py-8">
+      {/* Journal Link */}
+      <div className="flex justify-end mb-4">
+        <Link
+          href={`/blog?brand=${brand}`}
+          className="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-80"
+          style={{ color: brandColors.bg }}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+          </svg>
+          Read {BRAND_NAMES[brand]} Articles
+        </Link>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {visibleCollections.map((collection, index) => {
           const isActive = selectedCollection === collection.id;

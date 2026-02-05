@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const tag = searchParams.get('tag');
+    const brand = searchParams.get('brand');
 
     const items = await paginatedQuery({
       IndexName: 'GSI-EntityType',
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
         excerpt: item.excerpt || '',
         featuredImage: item.featuredImage || '',
         categoryId: item.categoryId || null,
+        relatedBrand: item.relatedBrand || null,
         tags: item.tags || [],
         author: item.author || '',
         publishedAt: item.publishedAt,
@@ -48,6 +50,11 @@ export async function GET(request: NextRequest) {
       articles = articles.filter((a) =>
         (a.tags as string[]).some((t) => t.toLowerCase() === tag.toLowerCase()),
       );
+    }
+
+    // Filter by related brand if provided
+    if (brand) {
+      articles = articles.filter((a) => a.relatedBrand === brand);
     }
 
     // Sort by publishedAt desc
