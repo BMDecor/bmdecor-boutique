@@ -98,7 +98,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 function formatDate(iso: string): string {
   if (!iso) return '';
   try {
-    return new Date(iso).toLocaleDateString('es-ES', {
+    return new Date(iso).toLocaleDateString('en-US', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
