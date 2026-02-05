@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
               ':brand': brand,
               ':type': 'PRODUCT',
             },
-            ProjectionExpression: 'collection, productType',
+            ExpressionAttributeNames: {
+              '#col': 'collection',
+            },
+            ProjectionExpression: '#col, productType',
             ExclusiveStartKey: lastKey,
           })
         );
