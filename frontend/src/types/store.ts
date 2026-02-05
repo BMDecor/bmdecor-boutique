@@ -176,8 +176,28 @@ export const CONTAINER_SIZES: ContainerSizeInfo[] = [
 // PRODUCT LINE (Brand-specific product ranges)
 // =============================================================================
 
-/** Brand identifier */
+/** Brand identifier (short code) */
 export type Brand = 'BM' | 'FB' | 'LG';
+
+/** Brand identifier (slug for URLs and data) */
+export type BrandId = 'benjamin-moore' | 'farrow-ball' | 'little-greene';
+
+/** Product type classification */
+export type ProductType = 'paint' | 'primer' | 'sample' | 'supply';
+
+/** Map short brand codes to full brand IDs */
+export const BRAND_ID_MAP: Record<Brand, BrandId> = {
+  'BM': 'benjamin-moore',
+  'FB': 'farrow-ball',
+  'LG': 'little-greene',
+};
+
+/** Map brand IDs to short codes */
+export const BRAND_CODE_MAP: Record<BrandId, Brand> = {
+  'benjamin-moore': 'BM',
+  'farrow-ball': 'FB',
+  'little-greene': 'LG',
+};
 
 /** Product line within a brand (e.g., Aura, Regal Select) */
 export interface ProductLine {
@@ -244,9 +264,12 @@ export interface Product {
   id: string;
   name: string;
   brand: Brand;
+  brandId: BrandId; // URL-friendly brand identifier
   productLine: string; // Reference to ProductLine.id
   department: Department;
   category: PaintCategory;
+  type: ProductType; // Product classification
+  tags: string[]; // Searchable tags for shopping archetypes
   basePrice: number; // Price in EUR for base size
   availableFinishes: FinishSheen[];
   availableSizes: ContainerSize[];
@@ -265,12 +288,18 @@ export interface Product {
 /** Color usage context */
 export type ColorUsage = 'Interior' | 'Exterior' | 'All';
 
+/** Color family for searching/filtering */
+export type ColorFamily = 'blue' | 'green' | 'grey' | 'white' | 'neutral' | 'dark' | 'red' | 'yellow' | 'pink' | 'purple';
+
 /** Color definition - an attribute that can be applied to tintable products */
 export interface Color {
+  id: string; // Unique identifier
   code: string; // Brand-specific code (e.g., "HC-154", "No.47")
   name: string;
   hex: string;
   brand: Brand;
+  brandId: BrandId; // URL-friendly brand identifier
+  family: ColorFamily; // Primary color family for filtering
   collection?: string; // Color family/collection
   usage: ColorUsage[]; // Where this color can be used
   lrv?: number; // Light Reflectance Value (0-100)

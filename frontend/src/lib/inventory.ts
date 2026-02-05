@@ -5,9 +5,10 @@
  * until the Admin Portal is connected to DynamoDB.
  *
  * Real Benjamin Moore SKUs with accurate industry specifications.
+ * Enhanced with shopping archetype tags and brand identifiers.
  */
 
-import type { Product, FinishSheen, ContainerSize } from '@/types/store';
+import type { Product, FinishSheen, ContainerSize, BrandId } from '@/types/store';
 
 // =============================================================================
 // PRICE MULTIPLIERS BY SIZE
@@ -44,10 +45,13 @@ export const INITIAL_INVENTORY: Product[] = [
     id: 'bm-aura-interior-524',
     name: 'Aura Interior Paint',
     brand: 'BM',
+    brandId: 'benjamin-moore',
     productLine: 'bm-aura',
     department: 'Paint',
     category: 'Interior',
-    basePrice: 79.95, // EUR per gallon
+    type: 'paint',
+    tags: ['interior', 'walls', 'premium', 'living-room', 'bedroom', 'zero-voc'],
+    basePrice: 79.95,
     availableFinishes: ['Matte', 'Eggshell', 'Satin'],
     availableSizes: ['Sample', 'Quart', 'Gallon'],
     isTintable: true,
@@ -66,10 +70,13 @@ export const INITIAL_INVENTORY: Product[] = [
     id: 'bm-regal-select-547',
     name: 'Regal Select Interior Paint',
     brand: 'BM',
+    brandId: 'benjamin-moore',
     productLine: 'bm-regal-select',
     department: 'Paint',
     category: 'Interior',
-    basePrice: 64.95, // EUR per gallon
+    type: 'paint',
+    tags: ['interior', 'walls', 'professional', 'high-traffic', 'hallway', 'durable'],
+    basePrice: 64.95,
     availableFinishes: ['Matte', 'Eggshell', 'Satin', 'Semi-Gloss'],
     availableSizes: ['Sample', 'Quart', 'Gallon', '5-Gallon'],
     isTintable: true,
@@ -82,16 +89,44 @@ export const INITIAL_INVENTORY: Product[] = [
   },
 
   // ---------------------------------------------------------------------------
+  // AURA BATH & SPA (Premium Bath/Kitchen)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'bm-aura-bath-spa-532',
+    name: 'Aura Bath & Spa',
+    brand: 'BM',
+    brandId: 'benjamin-moore',
+    productLine: 'bm-aura',
+    department: 'Paint',
+    category: 'Interior',
+    type: 'paint',
+    tags: ['interior', 'bath', 'bathroom', 'kitchen', 'high-humidity', 'mold-resistant', 'moisture', 'spa'],
+    basePrice: 84.95,
+    availableFinishes: ['Matte', 'Satin'],
+    availableSizes: ['Sample', 'Quart', 'Gallon'],
+    isTintable: true,
+    description:
+      'Specifically formulated for high-humidity environments like bathrooms and spas. Features mildew-resistant coating and Color Lock® technology for enduring beauty in moisture-prone areas.',
+    imageUrl: '/images/products/aura-bath-spa.jpg',
+    coverageRateM2PerL: 10,
+    inStock: true,
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ---------------------------------------------------------------------------
   // ADVANCE (Premium Trim & Door)
   // ---------------------------------------------------------------------------
   {
     id: 'bm-advance-792',
     name: 'Advance Interior Paint',
     brand: 'BM',
+    brandId: 'benjamin-moore',
     productLine: 'bm-advance',
     department: 'Paint',
     category: 'Trim & Door',
-    basePrice: 84.95, // EUR per gallon
+    type: 'paint',
+    tags: ['interior', 'trim', 'doors', 'cabinets', 'furniture', 'woodwork', 'self-leveling'],
+    basePrice: 84.95,
     availableFinishes: ['Satin', 'Semi-Gloss', 'Gloss'],
     availableSizes: ['Quart', 'Gallon'],
     isTintable: true,
@@ -110,10 +145,13 @@ export const INITIAL_INVENTORY: Product[] = [
     id: 'bm-aura-exterior-634',
     name: 'Aura Exterior Paint',
     brand: 'BM',
+    brandId: 'benjamin-moore',
     productLine: 'bm-aura',
     department: 'Paint',
     category: 'Exterior',
-    basePrice: 89.95, // EUR per gallon
+    type: 'paint',
+    tags: ['exterior', 'masonry', 'wood', 'facade', 'siding', 'weather-resistant', 'fade-resistant'],
+    basePrice: 89.95,
     availableFinishes: ['Matte', 'Satin'],
     availableSizes: ['Gallon', '5-Gallon'],
     isTintable: true,
@@ -132,13 +170,16 @@ export const INITIAL_INVENTORY: Product[] = [
     id: 'bm-fresh-start-023',
     name: 'Fresh Start All-Purpose Primer',
     brand: 'BM',
+    brandId: 'benjamin-moore',
     productLine: 'bm-fresh-start',
     department: 'Paint',
     category: 'Primer',
-    basePrice: 54.95, // EUR per gallon
-    availableFinishes: ['Matte'], // Primers typically only come in flat/matte
+    type: 'primer',
+    tags: ['primer', 'universal', 'prep', 'preparation', 'interior', 'exterior', 'adhesion'],
+    basePrice: 54.95,
+    availableFinishes: ['Matte'],
     availableSizes: ['Quart', 'Gallon', '5-Gallon'],
-    isTintable: false, // Primers are generally not tinted
+    isTintable: false,
     description:
       'A high-hiding, multi-purpose primer suitable for interior and exterior surfaces. Provides excellent adhesion on previously painted surfaces, new drywall, and cured plaster.',
     imageUrl: '/images/products/fresh-start.jpg',
@@ -154,10 +195,13 @@ export const INITIAL_INVENTORY: Product[] = [
     id: 'bm-ben-625',
     name: 'ben Interior Paint',
     brand: 'BM',
+    brandId: 'benjamin-moore',
     productLine: 'bm-ben',
     department: 'Paint',
     category: 'Interior',
-    basePrice: 49.95, // EUR per gallon
+    type: 'paint',
+    tags: ['interior', 'walls', 'value', 'budget', 'zero-voc', 'bedroom', 'rental'],
+    basePrice: 49.95,
     availableFinishes: ['Matte', 'Eggshell', 'Semi-Gloss'],
     availableSizes: ['Sample', 'Quart', 'Gallon'],
     isTintable: true,
@@ -205,7 +249,6 @@ export function getProductBySlug(slug: string): Product | undefined {
  * Get products by category
  */
 export function getProductsByCategory(category: string): Product[] {
-  // Map URL slug to category name
   const categoryMap: Record<string, string> = {
     'interior': 'Interior',
     'exterior': 'Exterior',
@@ -228,6 +271,30 @@ export function getProductsByProductLine(productLineId: string): Product[] {
 }
 
 /**
+ * Get products by brand ID
+ */
+export function getProductsByBrandId(brandId: BrandId): Product[] {
+  return INITIAL_INVENTORY.filter((p) => p.brandId === brandId);
+}
+
+/**
+ * Get products by tag (for Problem Solver archetype)
+ */
+export function getProductsByTag(tag: string): Product[] {
+  const normalizedTag = tag.toLowerCase();
+  return INITIAL_INVENTORY.filter((p) =>
+    p.tags.some((t) => t.toLowerCase().includes(normalizedTag))
+  );
+}
+
+/**
+ * Get products by type
+ */
+export function getProductsByType(type: Product['type']): Product[] {
+  return INITIAL_INVENTORY.filter((p) => p.type === type);
+}
+
+/**
  * Get all products
  */
 export function getAllProducts(): Product[] {
@@ -239,4 +306,20 @@ export function getAllProducts(): Product[] {
  */
 export function productToSlug(product: Product): string {
   return product.id;
+}
+
+/**
+ * Search products by query (searches name, description, and tags)
+ */
+export function searchProducts(query: string): Product[] {
+  const normalizedQuery = query.toLowerCase().trim();
+  if (!normalizedQuery) return [];
+
+  return INITIAL_INVENTORY.filter((p) => {
+    const nameMatch = p.name.toLowerCase().includes(normalizedQuery);
+    const descMatch = p.description?.toLowerCase().includes(normalizedQuery);
+    const tagMatch = p.tags.some((t) => t.toLowerCase().includes(normalizedQuery));
+    const categoryMatch = p.category.toLowerCase().includes(normalizedQuery);
+    return nameMatch || descMatch || tagMatch || categoryMatch;
+  });
 }
