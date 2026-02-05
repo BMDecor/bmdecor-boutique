@@ -80,6 +80,8 @@ export async function POST(request: NextRequest) {
       ContentType: fileType,
     });
 
+    console.log('[upload-url] Generating presigned URL for bucket:', BUCKET_NAME, 'key:', key);
+
     const uploadUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 300, // 5 minutes
     });
@@ -87,6 +89,8 @@ export async function POST(request: NextRequest) {
     // Construct public URL
     const region = process.env.BMDECOR_AWS_REGION || process.env.AWS_REGION || 'eu-west-1';
     const publicUrl = `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
+
+    console.log('[upload-url] Success - publicUrl:', publicUrl);
 
     return NextResponse.json({
       uploadUrl,

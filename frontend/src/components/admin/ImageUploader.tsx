@@ -30,36 +30,49 @@ export function ImageUploader({ onUploadComplete, folder, className = '' }: Imag
 
       // Get presigned URL
       setProgress(10);
-      const res = await fetch('/api/admin/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          fileType: file.type,
-          folder,
-          fileSize: file.size,
-        }),
-      });
+      let res;
+      try {
+        res = await fetch('/api/admin/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            filename: file.name,
+            fileType: file.type,
+            folder,
+            fileSize: file.size,
+          }),
+        });
+      } catch (fetchErr) {
+        throw new Error(`API request failed: ${fetchErr instanceof Error ? fetchErr.message : 'Network error'}`);
+      }
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to get upload URL');
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `API error: ${res.status} ${res.statusText}`);
       }
 
       const { uploadUrl, publicUrl } = await res.json();
       setProgress(30);
 
       // Upload to S3
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
-      });
+      let uploadRes;
+      try {
+        uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          mode: 'cors',
+          headers: {
+            'Content-Type': file.type,
+          },
+          body: file,
+        });
+      } catch (s3Err) {
+        throw new Error(`S3 upload failed: ${s3Err instanceof Error ? s3Err.message : 'Network error'}`);
+      }
 
       if (!uploadRes.ok) {
-        throw new Error('Failed to upload file to S3');
+        const s3Text = await uploadRes.text().catch(() => '');
+        throw new Error(`S3 error ${uploadRes.status}: ${s3Text.substring(0, 100)}`);
       }
 
       setProgress(100);
