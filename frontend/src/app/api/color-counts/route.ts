@@ -58,7 +58,11 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json({
-        _v: 3,
+        _v: 4,
+        _debug: {
+          rawCount: allItems.length,
+          sampleItem: allItems[0] || null,
+        },
         total: paintItems.length,
         collections,
       });
