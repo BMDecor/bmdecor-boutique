@@ -5,7 +5,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import CartBadge from '@/components/cart/CartBadge';
 import BrandPageTabs from '@/components/BrandPageTabs';
 import BrandCollectionHero from '@/components/shared/BrandCollectionHero';
 import BrandSearchBar from '@/components/shared/BrandSearchBar';
@@ -125,15 +124,9 @@ export default function FarrowAndBallPage() {
               </svg>
               Grand Lobby
             </Link>
-            <div className="flex items-center gap-3">
-              <Badge style={{ backgroundColor: `${ACCENT}30`, color: ACCENT }}>
-                Official Catalogue
-              </Badge>
-              <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
-                {colorCount} Colours
-              </Badge>
-              <CartBadge />
-            </div>
+            <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
+              {colorCount} Colours
+            </Badge>
           </div>
         </div>
       </header>

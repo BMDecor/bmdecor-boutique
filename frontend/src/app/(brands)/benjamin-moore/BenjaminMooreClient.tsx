@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
-import CartBadge from '@/components/cart/CartBadge';
 import BrandCollectionHero from '@/components/shared/BrandCollectionHero';
 import BrandSearchBar from '@/components/shared/BrandSearchBar';
 import InfiniteColorGrid from '@/components/shared/InfiniteColorGrid';
@@ -79,12 +78,9 @@ export default function BenjaminMoorePage() {
               </svg>
               Grand Lobby
             </Link>
-            <div className="flex items-center gap-3">
-              <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
-                {totalCount.toLocaleString()} Colors
-              </Badge>
-              <CartBadge />
-            </div>
+            <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
+              {totalCount.toLocaleString()} Colors
+            </Badge>
           </div>
         </div>
       </header>
