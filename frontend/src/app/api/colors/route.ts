@@ -79,7 +79,35 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Non-search mode: use DynamoDB pagination
+    // When a collection filter is specified, fetch all items to properly filter
+    // Otherwise use pagination for performance
+    if (collection && brand) {
+      // Fetch all items for the brand, then filter by collection
+      const allBrandItems = await fetchAllItemsForBrand(brand, productType);
+
+      // Filter by collection
+      const collectionFiltered = allBrandItems.filter((item) => {
+        const itemCol = String(item.collection || '');
+        return itemCol.includes(collection);
+      });
+
+      // Sort results
+      const sorted = sortItems(collectionFiltered, sortBy, sortOrder);
+
+      // Apply cursor-based pagination on filtered results
+      const cursorIndex = cursor ? parseInt(cursor, 10) || 0 : 0;
+      const paginatedItems = sorted.slice(cursorIndex, cursorIndex + limit);
+      const nextCursorIndex = cursorIndex + limit;
+      const hasMore = nextCursorIndex < sorted.length;
+
+      return NextResponse.json({
+        items: shapeItems(paginatedItems, productType),
+        nextCursor: hasMore ? String(nextCursorIndex) : null,
+        total: sorted.length,
+      });
+    }
+
+    // Non-search, non-collection mode: use DynamoDB pagination
     const allItems: Record<string, unknown>[] = [];
     let lastKey = exclusiveStartKey;
     let fetchedCount = 0;
