@@ -143,17 +143,29 @@ const BRAND_ACCENTS: Record<string, { accent: string; bg: string }> = {
   LG: { accent: '#E8E4D9', bg: '#4A5240' },
 };
 
+// Generate a gradient based on collection name (deterministic hash)
+function generateGradient(name: string): string {
+  // Simple hash function for deterministic color generation
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue1 = Math.abs(hash % 360);
+  const hue2 = (hue1 + 40) % 360;
+  return `linear-gradient(135deg, hsl(${hue1}, 45%, 55%) 0%, hsl(${hue2}, 35%, 35%) 100%)`;
+}
+
 export default function BrandCollectionHero({
   brand,
   selectedCollection,
   onSelect,
   collectionCounts,
 }: BrandCollectionHeroProps) {
-  const collections = BRAND_COLLECTIONS[brand] || [];
+  const predefinedCollections = BRAND_COLLECTIONS[brand] || [];
   const brandColors = BRAND_ACCENTS[brand];
 
-  // Filter to collections that have colors (or show all if no counts provided)
-  const visibleCollections = collections.filter((col) => {
+  // Filter predefined collections that have colors
+  const visiblePredefined = predefinedCollections.filter((col) => {
     if (col.id === 'all') return true;
     if (!collectionCounts) return true;
 
@@ -170,6 +182,36 @@ export default function BrandCollectionHero({
 
     return (collectionCounts.get(col.id) || 0) > 0;
   });
+
+  // Find additional collections in the data that aren't predefined
+  const predefinedIds = new Set(predefinedCollections.map((c) => c.id));
+  const dynamicCollections: CollectionCategory[] = [];
+
+  if (collectionCounts) {
+    collectionCounts.forEach((count, collectionName) => {
+      if (count > 0 && !predefinedIds.has(collectionName)) {
+        // Skip if this matches a grouped predefined collection
+        if (brand === 'BM') {
+          if (collectionName.includes('Color Trends')) return;
+          if (collectionName.includes('Affinity')) return;
+          if (collectionName.includes('Benjamin Moore Classics') || collectionName.includes('Designer Classics')) return;
+        }
+        // Add dynamic collection with auto-generated gradient
+        dynamicCollections.push({
+          id: collectionName,
+          name: collectionName,
+          description: `${count} colors`,
+          gradient: generateGradient(collectionName),
+        });
+      }
+    });
+  }
+
+  // Sort dynamic collections alphabetically
+  dynamicCollections.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Combine predefined and dynamic collections
+  const visibleCollections = [...visiblePredefined, ...dynamicCollections];
 
   // Get count for a collection (handling partial matches for BM)
   const getCount = (colId: string): number => {
