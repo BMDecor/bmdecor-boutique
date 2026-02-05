@@ -4,6 +4,7 @@ import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 
 /**
  * GET /api/color-counts
+ * Version: 2 (collection counts support)
  *
  * Returns collection counts for colors.
  *
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json({
+        _v: 2,
         total: allItems.length,
         collections,
       });
