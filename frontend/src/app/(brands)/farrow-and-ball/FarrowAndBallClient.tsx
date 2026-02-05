@@ -35,21 +35,22 @@ export default function FarrowAndBallPage() {
   const [collectionCounts, setCollectionCounts] = useState<Map<string, number>>(new Map());
   const [colorCount, setColorCount] = useState(0);
 
-  // Fetch collection counts on mount
+  // Fetch collection counts on mount using dedicated counts API
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const response = await fetch('/api/colors?brand=FB');
+        const response = await fetch('/api/color-counts?brand=FB');
         if (response.ok) {
           const data = await response.json();
-          const items = Array.isArray(data) ? data : data.items || [];
+          // API returns { total, collections: { name: count } }
           const counts = new Map<string, number>();
-          items.forEach((c: { collection?: string }) => {
-            const col = c.collection || 'Unknown';
-            counts.set(col, (counts.get(col) || 0) + 1);
-          });
+          if (data.collections) {
+            Object.entries(data.collections).forEach(([col, count]) => {
+              counts.set(col, count as number);
+            });
+          }
           setCollectionCounts(counts);
-          setColorCount(items.length);
+          setColorCount(data.total || 0);
         }
       } catch (error) {
         console.error('Failed to fetch collection counts:', error);
