@@ -1,168 +1,53 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import CartBadge from '@/components/cart/CartBadge';
-import BrandCollectionHero, { matchesCollection } from '@/components/shared/BrandCollectionHero';
-import { createSlug } from '@/lib/utils/slugs';
-
-// Types
-interface BMColor {
-  id: string;
-  brand: string;
-  name: string;
-  colorCode: string;
-  hexCode: string;
-  finishType: string;
-  priceEur: number;
-  volume: string;
-  collection?: string;
-  description?: string;
-  inStock: boolean;
-}
+import BrandCollectionHero from '@/components/shared/BrandCollectionHero';
+import BrandSearchBar from '@/components/shared/BrandSearchBar';
+import InfiniteColorGrid from '@/components/shared/InfiniteColorGrid';
 
 // Theme
 const ACCENT = '#C9A86C';
 const BG_DARK = '#2C2C2C';
-
-// Helper functions
-function calculateLRV(hex: string): number {
-  const rgb = hex.replace('#', '').match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [0, 0, 0];
-  const [r, g, b] = rgb.map((c) => c / 255);
-  return Math.round((0.2126 * r + 0.7152 * g + 0.0722 * b) * 100);
-}
-
-function getTextColor(hex: string): string {
-  return calculateLRV(hex) > 50 ? '#2C2C2C' : '#FFFFFF';
-}
-
-// Sort by ID for gradient flow (numeric codes first, then alphanumeric)
-function sortByIdAscending(a: BMColor, b: BMColor): number {
-  // Extract numeric parts for comparison
-  const aNum = parseInt(a.colorCode.replace(/\D/g, ''), 10) || 0;
-  const bNum = parseInt(b.colorCode.replace(/\D/g, ''), 10) || 0;
-
-  // If both have the same prefix, sort by number
-  const aPrefix = a.colorCode.replace(/[0-9-]/g, '');
-  const bPrefix = b.colorCode.replace(/[0-9-]/g, '');
-
-  if (aPrefix === bPrefix) {
-    return aNum - bNum;
-  }
-
-  // Sort by prefix first
-  return aPrefix.localeCompare(bPrefix);
-}
-
-// ─────────────────────────────────────────────────────────
-// COLOR CARD (Links to SEO product page)
-// ─────────────────────────────────────────────────────────
-
-function BMColorCard({ color }: { color: BMColor }) {
-  const textColor = getTextColor(color.hexCode);
-  const lrv = calculateLRV(color.hexCode);
-  const slug = createSlug(color);
-
-  return (
-    <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
-      <Link href={`/color/${slug}`}>
-        <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer">
-          <div
-            className="aspect-square w-full relative"
-            style={{ backgroundColor: color.hexCode }}
-          >
-            <div
-              className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ backgroundColor: `${textColor}20`, color: textColor }}
-            >
-              LRV {lrv}
-            </div>
-            <div
-              className="absolute bottom-3 left-3 font-mono text-sm font-semibold"
-              style={{ color: textColor }}
-            >
-              {color.colorCode}
-            </div>
-            <div
-              className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ color: textColor }}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </div>
-          </div>
-          <CardContent className="p-4 space-y-1 bg-white">
-            <h3 className="font-medium text-foreground leading-tight line-clamp-1">
-              {color.name}
-            </h3>
-            <p className="text-xs text-muted-foreground">{color.collection}</p>
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-sm font-semibold" style={{ color: ACCENT }}>
-                &euro;{color.priceEur.toFixed(2)}
-              </span>
-              <Badge variant="outline" className="text-xs">
-                {color.finishType?.split(' ')[0] || 'Paint'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </motion.div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────
 // MAIN PAGE
 // ─────────────────────────────────────────────────────────
 
 export default function BenjaminMoorePage() {
-  const [colors, setColors] = useState<BMColor[]>([]);
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [collectionCounts, setCollectionCounts] = useState<Map<string, number>>(new Map());
 
-  // Build collection counts from data
-  const collectionCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    colors.forEach((c) => {
-      const col = c.collection || 'Unknown';
-      counts.set(col, (counts.get(col) || 0) + 1);
-    });
-    return counts;
-  }, [colors]);
-
+  // Fetch collection counts on mount
   useEffect(() => {
-    async function fetchColors() {
+    async function fetchCounts() {
       try {
         const response = await fetch('/api/colors?brand=BM');
         if (response.ok) {
           const data = await response.json();
-          // Sort by ID ascending for gradient flow
-          data.sort(sortByIdAscending);
-          setColors(data);
+          // Handle both old format (array) and new format ({ items })
+          const items = Array.isArray(data) ? data : data.items || [];
+          const counts = new Map<string, number>();
+          items.forEach((c: { collection?: string }) => {
+            const col = c.collection || 'Unknown';
+            counts.set(col, (counts.get(col) || 0) + 1);
+          });
+          setCollectionCounts(counts);
         }
       } catch (error) {
-        console.error('Failed to fetch colors:', error);
+        console.error('Failed to fetch collection counts:', error);
       }
     }
-    fetchColors();
+    fetchCounts();
   }, []);
 
-  // Filter colors
-  const filteredColors = useMemo(() => {
-    return colors.filter((color) => {
-      const collectionMatch = matchesCollection(color.collection, selectedCollection, 'BM');
-      const searchMatch =
-        !searchQuery ||
-        color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
-      return collectionMatch && searchMatch;
-    });
-  }, [colors, selectedCollection, searchQuery]);
+  // Handle search
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   // Get display name for selected collection
   const getDisplayName = () => {
@@ -171,6 +56,13 @@ export default function BenjaminMoorePage() {
     if (selectedCollection === 'Benjamin Moore Classics') return 'Classics Collection';
     return selectedCollection;
   };
+
+  // Calculate total count
+  const totalCount = useMemo(() => {
+    let total = 0;
+    collectionCounts.forEach((v) => (total += v));
+    return total;
+  }, [collectionCounts]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
@@ -190,7 +82,7 @@ export default function BenjaminMoorePage() {
             <div className="flex items-center gap-3">
               <Badge style={{ backgroundColor: `${ACCENT}30`, color: ACCENT }}>Production API</Badge>
               <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
-                {filteredColors.length} Colors
+                {totalCount.toLocaleString()} Colors
               </Badge>
               <CartBadge />
             </div>
@@ -211,12 +103,12 @@ export default function BenjaminMoorePage() {
             Benjamin Moore
           </h1>
           <p className="text-white/60 text-sm max-w-xl">
-            4,000+ official colors sorted in gradient flow. Click any color for product details, visualizer, and calculator.
+            4,000+ official colors with infinite scroll. Click any color for product details, visualizer, and calculator.
           </p>
         </div>
       </section>
 
-      {/* Main Content - Full Width Gallery */}
+      {/* Main Content */}
       <main className="container mx-auto px-6 py-6">
         {/* Collection Hero Navigation */}
         <BrandCollectionHero
@@ -226,55 +118,30 @@ export default function BenjaminMoorePage() {
           collectionCounts={collectionCounts}
         />
 
-        {/* Search Bar */}
-        <div className="flex items-center justify-between mb-6 gap-4">
+        {/* Search and Title Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-semibold text-foreground">
-              {getDisplayName()}
+              {searchQuery ? `Search Results` : getDisplayName()}
             </h2>
-            <span className="text-sm text-muted-foreground">
-              {filteredColors.length} colors
-            </span>
           </div>
-          <div className="w-64">
-            <Input
-              type="text"
-              placeholder="Search colors..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white border-gray-200"
-            />
-          </div>
+          <BrandSearchBar
+            brand="BM"
+            brandName="Benjamin Moore"
+            onSearch={handleSearch}
+            accentColor={ACCENT}
+          />
         </div>
 
-        {/* Full Width Color Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          <AnimatePresence mode="popLayout">
-            {filteredColors.slice(0, 300).map((color) => (
-              <motion.div
-                key={color.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-              >
-                <BMColorCard color={color} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        {filteredColors.length > 300 && (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            Showing 300 of {filteredColors.length} colors. Use search to narrow results.
-          </div>
-        )}
-
-        {filteredColors.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground">
-            <p>No colors match your search.</p>
-          </div>
-        )}
+        {/* Infinite Scroll Color Grid */}
+        <InfiniteColorGrid
+          brand="BM"
+          searchQuery={searchQuery}
+          collection={selectedCollection}
+          accentColor={ACCENT}
+          bgColor={BG_DARK}
+          pageSize={48}
+        />
       </main>
 
       {/* Footer */}

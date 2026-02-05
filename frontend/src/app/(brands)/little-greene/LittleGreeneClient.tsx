@@ -1,126 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import CartBadge from '@/components/cart/CartBadge';
 import BrandPageTabs from '@/components/BrandPageTabs';
-import BrandCollectionHero, { matchesCollection } from '@/components/shared/BrandCollectionHero';
+import BrandCollectionHero from '@/components/shared/BrandCollectionHero';
+import BrandSearchBar from '@/components/shared/BrandSearchBar';
+import InfiniteColorGrid from '@/components/shared/InfiniteColorGrid';
 import WallpaperCard, { type WallpaperData } from '@/components/WallpaperCard';
 import WallpaperDrawer from '@/components/WallpaperDrawer';
-import { createSlug } from '@/lib/utils/slugs';
-
-// ─────────────────────────────────────────────────────────
-// TYPES & CONSTANTS
-// ─────────────────────────────────────────────────────────
-
-interface LGColor {
-  id: string;
-  brand: string;
-  name: string;
-  colorCode: string;
-  hexCode: string;
-  finishType: string;
-  priceEur: number;
-  volume: string;
-  collection?: string;
-  description?: string;
-  inStock: boolean;
-}
 
 // Theme
 const ACCENT = '#E8E4D9';
 const BG_DARK = '#4A5240';
 
 // ─────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────
-
-function calculateLRV(hex: string): number {
-  const rgb = hex.replace('#', '').match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [0, 0, 0];
-  const [r, g, b] = rgb.map((c) => c / 255);
-  return Math.round((0.2126 * r + 0.7152 * g + 0.0722 * b) * 100);
-}
-
-function getTextColor(hex: string): string {
-  return calculateLRV(hex) > 50 ? '#2C2C2C' : '#FFFFFF';
-}
-
-// Sort by color code ascending for gradient flow
-function sortByIdAscending(a: LGColor, b: LGColor): number {
-  // LG codes are numeric (e.g., "87", "138")
-  const aNum = parseInt(a.colorCode, 10) || 0;
-  const bNum = parseInt(b.colorCode, 10) || 0;
-  return aNum - bNum;
-}
-
-// ─────────────────────────────────────────────────────────
-// COLOR CARD (Links to SEO product page)
-// ─────────────────────────────────────────────────────────
-
-function LGColorCard({ color }: { color: LGColor }) {
-  const textColor = getTextColor(color.hexCode);
-  const lrv = calculateLRV(color.hexCode);
-  const slug = createSlug(color);
-
-  return (
-    <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
-      <Link href={`/color/${slug}`}>
-        <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer">
-          <div
-            className="aspect-square w-full relative"
-            style={{ backgroundColor: color.hexCode }}
-          >
-            <div
-              className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ backgroundColor: `${textColor}20`, color: textColor }}
-            >
-              LRV {lrv}
-            </div>
-            <div
-              className="absolute bottom-3 left-3 font-mono text-sm font-semibold"
-              style={{ color: textColor }}
-            >
-              {color.colorCode}
-            </div>
-            <div
-              className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ color: textColor }}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </div>
-          </div>
-          <CardContent className="p-4 space-y-1 bg-white">
-            <h3 className="font-medium text-foreground leading-tight line-clamp-1">
-              {color.name}
-            </h3>
-            <p className="text-xs text-muted-foreground">{color.collection}</p>
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-sm font-semibold" style={{ color: BG_DARK }}>
-                &euro;{color.priceEur.toFixed(2)}
-              </span>
-              <Badge variant="outline" className="text-xs">
-                {color.volume}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </motion.div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
 // MAIN PAGE
 // ─────────────────────────────────────────────────────────
 
 export default function LittleGreenePage() {
-  const [colors, setColors] = useState<LGColor[]>([]);
   const [wallpapers, setWallpapers] = useState<WallpaperData[]>([]);
   const [selectedWallpaper, setSelectedWallpaper] = useState<WallpaperData | null>(null);
   const [selectedCollection, setSelectedCollection] = useState('all');
@@ -128,16 +29,48 @@ export default function LittleGreenePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [wpSearchQuery, setWpSearchQuery] = useState('');
   const [activeProductTab, setActiveProductTab] = useState('paint');
+  const [collectionCounts, setCollectionCounts] = useState<Map<string, number>>(new Map());
+  const [colorCount, setColorCount] = useState(0);
 
-  // Build collection counts from data (handling dual-membership)
-  const collectionCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    colors.forEach((c) => {
-      const col = c.collection || 'Unknown';
-      counts.set(col, (counts.get(col) || 0) + 1);
-    });
-    return counts;
-  }, [colors]);
+  // Fetch collection counts on mount
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const response = await fetch('/api/colors?brand=LG');
+        if (response.ok) {
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : data.items || [];
+          const counts = new Map<string, number>();
+          items.forEach((c: { collection?: string }) => {
+            const col = c.collection || 'Unknown';
+            counts.set(col, (counts.get(col) || 0) + 1);
+          });
+          setCollectionCounts(counts);
+          setColorCount(items.length);
+        }
+      } catch (error) {
+        console.error('Failed to fetch collection counts:', error);
+      }
+    }
+    fetchCounts();
+  }, []);
+
+  // Fetch wallpapers
+  useEffect(() => {
+    async function fetchWallpapers() {
+      try {
+        const response = await fetch('/api/colors?brand=LG&type=wallpaper');
+        if (response.ok) {
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : data.items || [];
+          setWallpapers(items);
+        }
+      } catch (error) {
+        console.error('Failed to fetch LG wallpapers:', error);
+      }
+    }
+    fetchWallpapers();
+  }, []);
 
   // Wallpaper collections
   const wpCollections = useMemo(() => {
@@ -149,46 +82,10 @@ export default function LittleGreenePage() {
     return Array.from(cols.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [wallpapers]);
 
-  useEffect(() => {
-    async function fetchColors() {
-      try {
-        const response = await fetch('/api/colors?brand=LG');
-        if (response.ok) {
-          const data = await response.json();
-          // Sort by ID ascending for gradient flow
-          data.sort(sortByIdAscending);
-          setColors(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch LG colors:', error);
-      }
-    }
-    async function fetchWallpapers() {
-      try {
-        const response = await fetch('/api/colors?brand=LG&type=wallpaper');
-        if (response.ok) {
-          const data = await response.json();
-          setWallpapers(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch LG wallpapers:', error);
-      }
-    }
-    fetchColors();
-    fetchWallpapers();
+  // Handle search
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
   }, []);
-
-  // Filter colors
-  const filteredColors = useMemo(() => {
-    return colors.filter((color) => {
-      const collectionMatch = matchesCollection(color.collection, selectedCollection, 'LG');
-      const searchMatch =
-        !searchQuery ||
-        color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
-      return collectionMatch && searchMatch;
-    });
-  }, [colors, selectedCollection, searchQuery]);
 
   // Get display name for selected collection
   const getDisplayName = () => {
@@ -216,7 +113,7 @@ export default function LittleGreenePage() {
                 Master Product List
               </Badge>
               <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
-                {filteredColors.length} Colours
+                {colorCount} Colours
               </Badge>
               <CartBadge />
             </div>
@@ -237,7 +134,7 @@ export default function LittleGreenePage() {
             Little Greene
           </h1>
           <p className="text-white/60 text-sm max-w-xl">
-            204 colours sorted in gradient flow. Click any colour for product details and finish options.
+            204 colours with infinite scroll. Click any colour for product details and finish options.
           </p>
         </div>
       </section>
@@ -245,7 +142,7 @@ export default function LittleGreenePage() {
       {/* Product Tabs */}
       <BrandPageTabs
         tabs={[
-          { id: 'paint', label: 'Paint', count: colors.length },
+          { id: 'paint', label: 'Paint', count: colorCount },
           { id: 'wallpaper', label: 'Wallpaper', count: wallpapers.length },
         ]}
         activeTab={activeProductTab}
@@ -266,49 +163,30 @@ export default function LittleGreenePage() {
               collectionCounts={collectionCounts}
             />
 
-            {/* Search Bar */}
-            <div className="flex items-center justify-between mb-6 gap-4">
+            {/* Search and Title Bar */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
               <div className="flex items-center gap-4">
                 <h2 className="text-xl font-semibold text-foreground">
-                  {getDisplayName()}
+                  {searchQuery ? `Search Results` : getDisplayName()}
                 </h2>
-                <span className="text-sm text-muted-foreground">
-                  {filteredColors.length} colours
-                </span>
               </div>
-              <div className="w-64">
-                <Input
-                  type="text"
-                  placeholder="Search colours..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white border-gray-200"
-                />
-              </div>
+              <BrandSearchBar
+                brand="LG"
+                brandName="Little Greene"
+                onSearch={handleSearch}
+                accentColor={BG_DARK}
+              />
             </div>
 
-            {/* Full Width Color Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              <AnimatePresence mode="popLayout">
-                {filteredColors.map((color) => (
-                  <motion.div
-                    key={color.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                  >
-                    <LGColorCard color={color} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            {filteredColors.length === 0 && (
-              <div className="text-center py-16 text-muted-foreground">
-                <p>No colours match your search.</p>
-              </div>
-            )}
+            {/* Infinite Scroll Color Grid */}
+            <InfiniteColorGrid
+              brand="LG"
+              searchQuery={searchQuery}
+              collection={selectedCollection}
+              accentColor={BG_DARK}
+              bgColor={BG_DARK}
+              pageSize={48}
+            />
           </>
         ) : (
           /* ─── WALLPAPER TAB ─── */
