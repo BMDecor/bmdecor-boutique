@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { createSlug } from '@/lib/utils/slugs';
 import { decodeHtmlEntities } from '@/lib/utils/html-entities';
 
@@ -90,7 +89,7 @@ function matchesCollection(
 // COLOR CARD
 // ─────────────────────────────────────────────────────────
 
-function ColorCard({ color, accentColor }: { color: ColorItem; accentColor: string }) {
+function ColorCard({ color }: { color: ColorItem }) {
   const textColor = getTextColor(color.hexCode);
   const lrv = calculateLRV(color.hexCode);
   const slug = createSlug(color);
@@ -124,19 +123,11 @@ function ColorCard({ color, accentColor }: { color: ColorItem; accentColor: stri
               </svg>
             </div>
           </div>
-          <CardContent className="p-4 space-y-1 bg-white">
-            <h3 className="font-medium text-foreground leading-tight line-clamp-1">
+          <CardContent className="p-3 bg-white">
+            <h3 className="font-medium text-foreground leading-tight line-clamp-1 text-sm">
               {color.name}
             </h3>
-            <p className="text-xs text-muted-foreground">{decodeHtmlEntities(color.collection)}</p>
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-sm font-semibold" style={{ color: accentColor }}>
-                &euro;{color.priceEur.toFixed(2)}
-              </span>
-              <Badge variant="outline" className="text-xs">
-                {color.volume}
-              </Badge>
-            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{decodeHtmlEntities(color.collection)}</p>
           </CardContent>
         </Card>
       </Link>
@@ -153,13 +144,9 @@ function ColorCardSkeleton() {
     <div className="animate-pulse">
       <Card className="overflow-hidden border-0 shadow-sm">
         <div className="aspect-square w-full bg-gray-200" />
-        <CardContent className="p-4 space-y-2 bg-white">
+        <CardContent className="p-3 bg-white">
           <div className="h-4 bg-gray-200 rounded w-3/4" />
-          <div className="h-3 bg-gray-100 rounded w-1/2" />
-          <div className="flex items-center justify-between pt-2">
-            <div className="h-4 bg-gray-200 rounded w-16" />
-            <div className="h-5 bg-gray-100 rounded w-12" />
-          </div>
+          <div className="h-3 bg-gray-100 rounded w-1/2 mt-1" />
         </CardContent>
       </Card>
     </div>
@@ -363,7 +350,7 @@ export default function InfiniteColorGrid({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
             >
-              <ColorCard color={color} accentColor={accentColor} />
+              <ColorCard color={color} />
             </motion.div>
           ))}
         </AnimatePresence>

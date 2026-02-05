@@ -19,15 +19,16 @@ export default function BenjaminMoorePage() {
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [collectionCounts, setCollectionCounts] = useState<Map<string, number>>(new Map());
+  const [sampleColors, setSampleColors] = useState<Map<string, string[]>>(new Map());
 
-  // Fetch collection counts on mount using dedicated counts API
+  // Fetch collection counts and sample colors on mount
   useEffect(() => {
     async function fetchCounts() {
       try {
         const response = await fetch('/api/color-counts?brand=BM');
         if (response.ok) {
           const data = await response.json();
-          // API returns { total, collections: { name: count } }
+          // API returns { total, collections: { name: count }, sampleColors: { name: hex[] } }
           const counts = new Map<string, number>();
           if (data.collections) {
             Object.entries(data.collections).forEach(([col, count]) => {
@@ -35,6 +36,15 @@ export default function BenjaminMoorePage() {
             });
           }
           setCollectionCounts(counts);
+
+          // Extract sample colors for gradients
+          const samples = new Map<string, string[]>();
+          if (data.sampleColors) {
+            Object.entries(data.sampleColors).forEach(([col, hexes]) => {
+              samples.set(col, hexes as string[]);
+            });
+          }
+          setSampleColors(samples);
         }
       } catch (error) {
         console.error('Failed to fetch collection counts:', error);
@@ -105,6 +115,7 @@ export default function BenjaminMoorePage() {
           selectedCollection={selectedCollection}
           onSelect={setSelectedCollection}
           collectionCounts={collectionCounts}
+          sampleColors={sampleColors}
         />
 
         {/* Search and Title Bar */}

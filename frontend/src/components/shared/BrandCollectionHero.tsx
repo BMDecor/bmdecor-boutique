@@ -23,6 +23,7 @@ interface BrandCollectionHeroProps {
   selectedCollection: string;
   onSelect: (collectionId: string) => void;
   collectionCounts?: Map<string, number>;
+  sampleColors?: Map<string, string[]>; // Collection name -> array of hex codes
 }
 
 // Brand-specific collection configurations
@@ -144,9 +145,27 @@ const BRAND_ACCENTS: Record<string, { accent: string; bg: string }> = {
   LG: { accent: '#E8E4D9', bg: '#4A5240' },
 };
 
-// Generate a gradient based on collection name (deterministic hash)
-function generateGradient(name: string): string {
-  // Simple hash function for deterministic color generation
+// Generate a gradient from actual hex colors
+function generateGradientFromColors(hexCodes: string[]): string {
+  if (!hexCodes || hexCodes.length === 0) {
+    return 'linear-gradient(135deg, #888 0%, #444 100%)';
+  }
+  if (hexCodes.length === 1) {
+    return `linear-gradient(135deg, ${hexCodes[0]} 0%, ${hexCodes[0]} 100%)`;
+  }
+  if (hexCodes.length === 2) {
+    return `linear-gradient(135deg, ${hexCodes[0]} 0%, ${hexCodes[1]} 100%)`;
+  }
+  // For 3+ colors, create stops at even intervals
+  const stops = hexCodes.map((hex, i) => {
+    const percent = Math.round((i / (hexCodes.length - 1)) * 100);
+    return `${hex} ${percent}%`;
+  });
+  return `linear-gradient(135deg, ${stops.join(', ')})`;
+}
+
+// Fallback: Generate a gradient based on collection name (deterministic hash)
+function generateGradientFallback(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -161,9 +180,58 @@ export default function BrandCollectionHero({
   selectedCollection,
   onSelect,
   collectionCounts,
+  sampleColors,
 }: BrandCollectionHeroProps) {
   const predefinedCollections = BRAND_COLLECTIONS[brand] || [];
   const brandColors = BRAND_ACCENTS[brand];
+
+  // Helper to get gradient for a collection (prefer real colors)
+  const getCollectionGradient = (colId: string, fallbackGradient: string): string => {
+    if (!sampleColors) return fallbackGradient;
+
+    // For 'all', combine samples from all collections
+    if (colId === 'all') {
+      const allHexes: string[] = [];
+      sampleColors.forEach((hexes) => {
+        if (hexes.length > 0) allHexes.push(hexes[0]);
+      });
+      // Take first 5 distinct colors
+      const unique = [...new Set(allHexes)].slice(0, 5);
+      return unique.length > 0 ? generateGradientFromColors(unique) : fallbackGradient;
+    }
+
+    // Handle grouped collections for BM
+    if (brand === 'BM') {
+      if (colId === 'Color Trends' || colId === 'Affinity' || colId === 'Benjamin Moore Classics') {
+        const matchingHexes: string[] = [];
+        sampleColors.forEach((hexes, key) => {
+          if (key.includes(colId) || (colId === 'Benjamin Moore Classics' && key.includes('Designer Classics'))) {
+            matchingHexes.push(...hexes);
+          }
+        });
+        return matchingHexes.length > 0
+          ? generateGradientFromColors(matchingHexes.slice(0, 5))
+          : fallbackGradient;
+      }
+    }
+
+    // Handle LG partial matching
+    if (brand === 'LG') {
+      const matchingHexes: string[] = [];
+      sampleColors.forEach((hexes, key) => {
+        if (key.includes(colId)) {
+          matchingHexes.push(...hexes);
+        }
+      });
+      if (matchingHexes.length > 0) {
+        return generateGradientFromColors(matchingHexes.slice(0, 5));
+      }
+    }
+
+    // Direct match
+    const hexes = sampleColors.get(colId);
+    return hexes && hexes.length > 0 ? generateGradientFromColors(hexes) : fallbackGradient;
+  };
 
   // Filter predefined collections that have colors
   const visiblePredefined = predefinedCollections.filter((col) => {
@@ -197,12 +265,15 @@ export default function BrandCollectionHero({
           if (collectionName.includes('Affinity')) return;
           if (collectionName.includes('Benjamin Moore Classics') || collectionName.includes('Designer Classics')) return;
         }
-        // Add dynamic collection with auto-generated gradient
+        // Add dynamic collection (gradient will be generated from sample colors)
+        const hexes = sampleColors?.get(collectionName);
         dynamicCollections.push({
           id: collectionName,
           name: collectionName,
           description: `${count} colors`,
-          gradient: generateGradient(collectionName),
+          gradient: hexes && hexes.length > 0
+            ? generateGradientFromColors(hexes)
+            : generateGradientFallback(collectionName),
         });
       }
     });
@@ -277,7 +348,7 @@ export default function BrandCollectionHero({
                   : 'hover:shadow-lg hover:scale-[1.01]'
               }`}
               style={{
-                background: collection.gradient,
+                background: getCollectionGradient(collection.id, collection.gradient),
                 ringColor: brandColors.accent,
               }}
               initial={{ opacity: 0, y: 20 }}

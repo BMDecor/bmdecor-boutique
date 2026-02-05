@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
             ExpressionAttributeNames: {
               '#col': 'collection',
             },
-            ProjectionExpression: '#col, productType',
+            ProjectionExpression: '#col, productType, hexCode, colorCode',
             ExclusiveStartKey: lastKey,
           })
         );
@@ -52,16 +52,45 @@ export async function GET(request: NextRequest) {
         return !pt || pt === 'paint';
       });
 
-      // Build collection counts
+      // Build collection counts and sample colors
       const collections: Record<string, number> = {};
+      const collectionColors: Record<string, { hex: string; code: string }[]> = {};
+
       for (const item of paintItems) {
         const col = String(item.collection || 'Unknown');
+        const hex = item.hexCode as string | undefined;
+        const code = item.colorCode as string | undefined;
+
         collections[col] = (collections[col] || 0) + 1;
+
+        // Collect hex codes for gradient preview (up to 5 per collection)
+        if (hex) {
+          if (!collectionColors[col]) collectionColors[col] = [];
+          if (collectionColors[col].length < 5) {
+            collectionColors[col].push({ hex, code: code || '' });
+          }
+        }
+      }
+
+      // Sort sample colors by color code for visual consistency
+      for (const col of Object.keys(collectionColors)) {
+        collectionColors[col].sort((a, b) => {
+          const aNum = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
+          const bNum = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
+          return aNum - bNum;
+        });
+      }
+
+      // Convert to just hex codes for API response
+      const sampleColors: Record<string, string[]> = {};
+      for (const [col, colors] of Object.entries(collectionColors)) {
+        sampleColors[col] = colors.map((c) => c.hex);
       }
 
       return NextResponse.json({
         total: paintItems.length,
         collections,
+        sampleColors,
       });
     }
 
