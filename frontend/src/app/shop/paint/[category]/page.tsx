@@ -1,7 +1,9 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { PAINT_CATEGORIES, BM_PRODUCT_LINES, type PaintCategory } from '@/types/store';
+import { getProductsByCategory, calculatePrice } from '@/lib/inventory';
 
 type PageProps = {
   params: Promise<{ category: string }>;
@@ -51,8 +53,10 @@ export default async function PaintCategoryPage({ params }: PageProps) {
     notFound();
   }
 
-  // Filter product lines by this category
-  // TODO: Replace with DynamoDB fetch when products are seeded
+  // Get products for this category
+  const products = getProductsByCategory(category);
+
+  // Get product lines for this category (for reference info)
   const productLines = BM_PRODUCT_LINES.filter((pl) => pl.category === categoryInfo.id);
 
   return (
@@ -77,49 +81,135 @@ export default async function PaintCategoryPage({ params }: PageProps) {
         </div>
       </header>
 
-      {/* Product Lines Grid */}
+      {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {productLines.length > 0 ? (
+        {products.length > 0 ? (
           <>
-            <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-[#2C2C2C] mb-6">
-              Product Lines
-            </h2>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-[#2C2C2C]">
+                Products
+              </h2>
+              <p className="text-sm text-[#2C2C2C]/50">
+                {products.length} product{products.length !== 1 ? 's' : ''} available
+              </p>
+            </div>
+
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {productLines.map((line) => (
-                <Link
-                  key={line.id}
-                  href={`/shop/paint/${category}/${line.slug}`}
-                  className="group bg-white rounded-xl border border-[#E8E2D9] p-6 hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      line.tier === 'Premium' ? 'bg-[#C9A86C]/10 text-[#C9A86C]' :
-                      line.tier === 'Professional' ? 'bg-[#2C2C2C]/10 text-[#2C2C2C]' :
-                      'bg-[#4A5240]/10 text-[#4A5240]'
-                    }`}>
-                      {line.tier}
-                    </span>
-                    <span className="text-xs text-[#2C2C2C]/40">
-                      {line.brand === 'BM' ? 'Benjamin Moore' : line.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
-                    </span>
-                  </div>
+              {products.map((product) => {
+                const productLine = BM_PRODUCT_LINES.find((pl) => pl.id === product.productLine);
+                const startingPrice = calculatePrice(
+                  product.basePrice,
+                  product.availableSizes[0],
+                  product.availableFinishes[0]
+                );
 
-                  <h3 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] group-hover:text-[#C9A86C] transition-colors">
-                    {line.name}
-                  </h3>
-                  <p className="text-sm text-[#2C2C2C]/60 mt-2 mb-4">
-                    {line.description}
-                  </p>
+                return (
+                  <article
+                    key={product.id}
+                    className="group bg-white rounded-xl border border-[#E8E2D9] overflow-hidden hover:shadow-lg transition-shadow"
+                  >
+                    {/* Product Image */}
+                    <div className="relative aspect-[4/3] bg-[#F5F3F0]">
+                      {product.imageUrl ? (
+                        <Image
+                          src={product.imageUrl}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-[#C9A86C]/10 flex items-center justify-center">
+                              <svg
+                                className="w-8 h-8 text-[#C9A86C]"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={1.5}
+                                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-xs text-[#2C2C2C]/30">
+                              Benjamin Moore
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
-                  <ul className="flex flex-wrap gap-2">
-                    {line.features.slice(0, 3).map((feature) => (
-                      <li key={feature} className="text-xs text-[#2C2C2C]/50 bg-[#FAF8F5] px-2 py-1 rounded">
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </Link>
-              ))}
+                      {/* Stock Badge */}
+                      {product.inStock && (
+                        <span className="absolute top-3 right-3 text-xs px-2 py-1 bg-[#4A5240] text-white rounded-full">
+                          In Stock
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="p-5">
+                      {/* Tier & Product Line */}
+                      <div className="flex items-center justify-between mb-2">
+                        {productLine && (
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            productLine.tier === 'Premium' ? 'bg-[#C9A86C]/10 text-[#C9A86C]' :
+                            productLine.tier === 'Professional' ? 'bg-[#2C2C2C]/10 text-[#2C2C2C]' :
+                            'bg-[#4A5240]/10 text-[#4A5240]'
+                          }`}>
+                            {productLine.tier}
+                          </span>
+                        )}
+                        <span className="text-xs text-[#2C2C2C]/40">
+                          {product.brand === 'BM' ? 'Benjamin Moore' : product.brand}
+                        </span>
+                      </div>
+
+                      {/* Name */}
+                      <h3 className="font-[family-name:var(--font-playfair)] text-lg text-[#2C2C2C] mb-2">
+                        {product.name}
+                      </h3>
+
+                      {/* Description */}
+                      <p className="text-sm text-[#2C2C2C]/60 mb-4 line-clamp-2">
+                        {product.description}
+                      </p>
+
+                      {/* Available Finishes */}
+                      <div className="flex flex-wrap gap-1 mb-4">
+                        {product.availableFinishes.map((finish) => (
+                          <span
+                            key={finish}
+                            className="text-xs text-[#2C2C2C]/50 bg-[#FAF8F5] px-2 py-1 rounded"
+                          >
+                            {finish}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Price & CTA */}
+                      <div className="flex items-center justify-between pt-4 border-t border-[#E8E2D9]">
+                        <div>
+                          <p className="text-xs text-[#2C2C2C]/40">Starting at</p>
+                          <p className="text-lg font-semibold text-[#2C2C2C]">
+                            €{startingPrice.toFixed(2)}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/shop/product/${product.id}`}
+                          className="px-4 py-2 bg-[#2C2C2C] text-white text-sm rounded-lg hover:bg-[#1a1a1a] transition-colors group-hover:bg-[#C9A86C]"
+                        >
+                          Configure
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </>
         ) : (
@@ -128,7 +218,7 @@ export default async function PaintCategoryPage({ params }: PageProps) {
               Coming Soon
             </p>
             <p className="text-sm text-[#2C2C2C]/40 mt-2">
-              Product lines for {categoryInfo.name} paint are being added.
+              Products for {categoryInfo.name} paint are being added.
             </p>
             <Link
               href="/search"
@@ -137,6 +227,35 @@ export default async function PaintCategoryPage({ params }: PageProps) {
               Browse All Colors
             </Link>
           </div>
+        )}
+
+        {/* Product Lines Reference (if any exist for this category) */}
+        {productLines.length > 0 && (
+          <section className="mt-16 pt-8 border-t border-[#2C2C2C]/8">
+            <h2 className="font-[family-name:var(--font-playfair)] text-xl text-[#2C2C2C] mb-6">
+              Product Lines in {categoryInfo.name}
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {productLines.map((line) => (
+                <div
+                  key={line.id}
+                  className="bg-white rounded-lg border border-[#E8E2D9] p-4"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      line.tier === 'Premium' ? 'bg-[#C9A86C]/10 text-[#C9A86C]' :
+                      line.tier === 'Professional' ? 'bg-[#2C2C2C]/10 text-[#2C2C2C]' :
+                      'bg-[#4A5240]/10 text-[#4A5240]'
+                    }`}>
+                      {line.tier}
+                    </span>
+                  </div>
+                  <h3 className="font-medium text-[#2C2C2C]">{line.name}</h3>
+                  <p className="text-sm text-[#2C2C2C]/60 mt-1">{line.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* Brand Filter Section */}

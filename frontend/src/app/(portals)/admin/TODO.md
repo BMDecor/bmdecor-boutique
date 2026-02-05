@@ -2,6 +2,17 @@
 
 This document outlines the required updates to align the Admin Command Center with the new industry-standard paint taxonomy defined in `src/types/store.ts`.
 
+> **⚠️ IMPORTANT: Current Data Source**
+>
+> The storefront is currently using **`src/lib/inventory.ts`** as the static source of truth for product data.
+> This file contains mock inventory with real Benjamin Moore SKUs (Aura, Regal Select, Advance, etc.).
+>
+> **The Admin Portal must eventually replace this file with a DynamoDB table** to enable:
+> - Real-time inventory management
+> - CRUD operations from the Admin UI
+> - Price updates without code deployments
+> - Stock level tracking
+
 ## Overview
 
 The frontend customer experience has been updated to use a **Department → Category → Product Line → Product** hierarchy. The admin portal forms and APIs need to be updated to match this structure.
@@ -96,11 +107,27 @@ import {
 
 ## Priority Order
 
-1. Product Add/Edit Forms (highest impact)
-2. API Routes (required for forms)
-3. Products List View (admin UX)
-4. Colors Management (data model)
-5. Inventory & Exports (lower priority)
+1. **Inventory Migration** (replace `src/lib/inventory.ts` with DynamoDB)
+2. Product Add/Edit Forms (highest impact)
+3. API Routes (required for forms)
+4. Products List View (admin UX)
+5. Colors Management (data model)
+6. Inventory & Exports (lower priority)
+
+## Current Mock Inventory
+
+The following products are defined in `src/lib/inventory.ts`:
+
+| Product | Line | Category | Base Price |
+|---------|------|----------|------------|
+| Aura Interior Paint | bm-aura | Interior | €79.95 |
+| Regal Select Interior Paint | bm-regal-select | Interior | €64.95 |
+| Advance Interior Paint | bm-advance | Trim & Door | €84.95 |
+| Aura Exterior Paint | bm-aura | Exterior | €89.95 |
+| Fresh Start All-Purpose Primer | bm-fresh-start | Primer | €54.95 |
+| ben Interior Paint | bm-ben | Interior | €49.95 |
+
+These products use calculated pricing based on size multipliers and sheen adjustments.
 
 ---
 
