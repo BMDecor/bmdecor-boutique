@@ -1,17 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BrandPageTabs from '@/components/BrandPageTabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
-import { Separator } from '@/components/ui/separator';
-import type { CalculatorResult } from '@/lib/api/benjamin-moore';
 import CartBadge from '@/components/cart/CartBadge';
-import CalculatorCartBridge from '@/components/cart/CalculatorCartBridge';
+import BrandCollectionHero, { matchesCollection } from '@/components/shared/BrandCollectionHero';
 import { createSlug } from '@/lib/utils/slugs';
 
 // Types
@@ -29,85 +25,9 @@ interface BMColor {
   inStock: boolean;
 }
 
-
-// Core collection name patterns (everything else goes to Design Trends)
-const CORE_COLLECTION_PATTERNS = [
-  'Affinity', 'Benjamin Moore Classics', 'Designer Classics',
-  'Color Preview', 'Color Stories', 'Williamsburg',
-  'Historical Colors', 'Off White', 'Ready-Mix',
-];
-
-function isCorCollection(name: string): boolean {
-  return CORE_COLLECTION_PATTERNS.some((pattern) => name.includes(pattern));
-}
-
-interface CollectionGroup {
-  label: string;
-  items: { name: string; displayName: string; count: number }[];
-}
-
-// Product lines with real BM product numbers
-const PRODUCT_LINES = [
-  {
-    name: 'Aura Interior',
-    sheens: [
-      { label: 'Matte', productNumber: 'N522' },
-      { label: 'Eggshell', productNumber: 'N524' },
-      { label: 'Satin', productNumber: 'N526' },
-      { label: 'Semi-Gloss', productNumber: 'N528' },
-    ],
-  },
-  {
-    name: 'Regal Select Interior',
-    sheens: [
-      { label: 'Flat', productNumber: 'N547' },
-      { label: 'Matte', productNumber: 'N548' },
-      { label: 'Eggshell', productNumber: 'N549' },
-      { label: 'Pearl', productNumber: 'N550' },
-      { label: 'Semi-Gloss', productNumber: 'N551' },
-    ],
-  },
-  {
-    name: 'ben Interior',
-    sheens: [
-      { label: 'Matte', productNumber: 'N624' },
-      { label: 'Eggshell', productNumber: 'N626' },
-      { label: 'Semi-Gloss', productNumber: 'N627' },
-      { label: 'Pearl', productNumber: 'N628' },
-    ],
-  },
-  {
-    name: 'Aura Exterior',
-    sheens: [
-      { label: 'Flat', productNumber: 'N629' },
-      { label: 'Satin', productNumber: 'N631' },
-      { label: 'Soft Gloss', productNumber: 'N632' },
-      { label: 'Low Lustre', productNumber: 'N634' },
-    ],
-  },
-  {
-    name: 'Regal Select Exterior',
-    sheens: [
-      { label: 'Flat', productNumber: '400' },
-      { label: 'Low Lustre', productNumber: '401' },
-      { label: 'Soft Gloss', productNumber: '403' },
-    ],
-  },
-  {
-    name: 'Aura Bath & Spa',
-    sheens: [
-      { label: 'Matte', productNumber: '532' },
-    ],
-  },
-  {
-    name: 'Woodluxe Exterior Stain',
-    sheens: [
-      { label: 'Solid', productNumber: 'ES-10' },
-      { label: 'Semi-Transparent', productNumber: 'ES-40' },
-      { label: 'Translucent', productNumber: 'ES-65' },
-    ],
-  },
-];
+// Theme
+const ACCENT = '#C9A86C';
+const BG_DARK = '#2C2C2C';
 
 // Helper functions
 function calculateLRV(hex: string): number {
@@ -120,292 +40,23 @@ function getTextColor(hex: string): string {
   return calculateLRV(hex) > 50 ? '#2C2C2C' : '#FFFFFF';
 }
 
-// ─────────────────────────────────────────────────────────
-// PROFESSIONAL CALCULATOR (with real BM product lines)
-// ─────────────────────────────────────────────────────────
+// Sort by ID for gradient flow (numeric codes first, then alphanumeric)
+function sortByIdAscending(a: BMColor, b: BMColor): number {
+  // Extract numeric parts for comparison
+  const aNum = parseInt(a.colorCode.replace(/\D/g, ''), 10) || 0;
+  const bNum = parseInt(b.colorCode.replace(/\D/g, ''), 10) || 0;
 
-function ProfessionalCalculator({ selectedColor }: { selectedColor: BMColor | null }) {
-  const [wallHeight, setWallHeight] = useState<number>(0);
-  const [wallWidth, setWallWidth] = useState<number>(0);
-  const [doors, setDoors] = useState<number>(1);
-  const [windows, setWindows] = useState<number>(1);
-  const [coats, setCoats] = useState<number>(2);
-  const [selectedLine, setSelectedLine] = useState(0);
-  const [selectedSheen, setSelectedSheen] = useState(0);
-  const [result, setResult] = useState<CalculatorResult | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
+  // If both have the same prefix, sort by number
+  const aPrefix = a.colorCode.replace(/[0-9-]/g, '');
+  const bPrefix = b.colorCode.replace(/[0-9-]/g, '');
 
-  // Calculate net surface area
-  const grossArea = wallHeight * wallWidth;
-  const doorArea = doors * 1.98; // Standard door ~1.98 m²
-  const windowArea = windows * 1.2; // Standard window ~1.2 m²
-  const netArea = Math.max(0, grossArea - doorArea - windowArea);
+  if (aPrefix === bPrefix) {
+    return aNum - bNum;
+  }
 
-  const line = PRODUCT_LINES[selectedLine];
-  const sheen = line.sheens[selectedSheen] || line.sheens[0];
-
-  const calculateNeeds = useCallback(async () => {
-    if (!selectedColor || netArea <= 0) return;
-
-    setIsCalculating(true);
-    try {
-      const response = await fetch('/api/bm/calculator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          colorNumber: selectedColor.colorCode,
-          surfaceArea: netArea,
-          coats,
-          productLine: line.name,
-          productNumber: sheen.productNumber,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResult(data);
-      }
-    } catch (error) {
-      console.error('Calculator error:', error);
-    } finally {
-      setIsCalculating(false);
-    }
-  }, [selectedColor, netArea, coats, line.name, sheen.productNumber]);
-
-  useEffect(() => {
-    if (netArea > 0 && selectedColor) {
-      const debounce = setTimeout(calculateNeeds, 600);
-      return () => clearTimeout(debounce);
-    }
-  }, [netArea, coats, selectedLine, selectedSheen, selectedColor, calculateNeeds]);
-
-  return (
-    <Card className="bg-[#2C2C2C] text-white border-0">
-      <CardContent className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <svg className="w-5 h-5 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-          <h3 className="font-semibold text-sm">Professional Calculator</h3>
-          <Badge className="bg-[#C9A86C]/20 text-[#C9A86C] text-xs">BM API</Badge>
-        </div>
-
-        <div className="space-y-3">
-          {/* Product Line */}
-          <div>
-            <label className="text-xs text-white/60 mb-1 block">Product Line</label>
-            <select
-              value={selectedLine}
-              onChange={(e) => { setSelectedLine(Number(e.target.value)); setSelectedSheen(0); }}
-              className="w-full bg-white/10 border border-white/20 text-white text-sm rounded-lg p-2"
-            >
-              {PRODUCT_LINES.map((pl, i) => (
-                <option key={pl.name} value={i} className="bg-[#2C2C2C]">{pl.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sheen */}
-          <div>
-            <label className="text-xs text-white/60 mb-1 block">Sheen</label>
-            <div className="flex flex-wrap gap-1.5">
-              {line.sheens.map((s, i) => (
-                <button
-                  key={s.productNumber}
-                  onClick={() => setSelectedSheen(i)}
-                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
-                    selectedSheen === i
-                      ? 'bg-[#C9A86C] text-[#2C2C2C] font-medium'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Wall Dimensions */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-white/60 mb-1 block">Wall Height (m)</label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="2.5"
-                value={wallHeight || ''}
-                onChange={(e) => setWallHeight(parseFloat(e.target.value) || 0)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-9"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-white/60 mb-1 block">Wall Width (m)</label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder="4.0"
-                value={wallWidth || ''}
-                onChange={(e) => setWallWidth(parseFloat(e.target.value) || 0)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-9"
-              />
-            </div>
-          </div>
-
-          {/* Doors & Windows */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-white/60 mb-1 block">Doors</label>
-              <Input
-                type="number"
-                min="0"
-                value={doors}
-                onChange={(e) => setDoors(parseInt(e.target.value) || 0)}
-                className="bg-white/10 border-white/20 text-white h-9"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-white/60 mb-1 block">Windows</label>
-              <Input
-                type="number"
-                min="0"
-                value={windows}
-                onChange={(e) => setWindows(parseInt(e.target.value) || 0)}
-                className="bg-white/10 border-white/20 text-white h-9"
-              />
-            </div>
-          </div>
-
-          {/* Net Area Display */}
-          {grossArea > 0 && (
-            <div className="text-xs text-white/50 px-1">
-              Gross: {grossArea.toFixed(1)}m² − Doors: {doorArea.toFixed(1)}m² − Windows: {windowArea.toFixed(1)}m² = <span className="text-[#C9A86C] font-medium">{netArea.toFixed(1)}m² net</span>
-            </div>
-          )}
-
-          {/* Coats */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-white/60">Coats</label>
-              <span className="text-sm font-medium text-[#C9A86C]">{coats}</span>
-            </div>
-            <Slider
-              value={[coats]}
-              onValueChange={([v]) => setCoats(v)}
-              min={1}
-              max={3}
-              step={1}
-              className="py-1"
-            />
-          </div>
-
-          {/* Selected Color */}
-          {selectedColor && (
-            <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-              <div className="w-8 h-8 rounded" style={{ backgroundColor: selectedColor.hexCode }} />
-              <div className="text-sm">
-                <div className="font-medium">{selectedColor.name}</div>
-                <div className="text-white/60 text-xs">{selectedColor.colorCode}</div>
-              </div>
-            </div>
-          )}
-
-          <Separator className="bg-white/10" />
-
-          {/* Results */}
-          {isCalculating ? (
-            <div className="text-center py-3">
-              <div className="animate-spin w-5 h-5 border-2 border-[#C9A86C] border-t-transparent rounded-full mx-auto" />
-              <p className="text-xs text-white/60 mt-2">Calculating...</p>
-            </div>
-          ) : result ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-white/5 rounded-lg">
-                  <div className="text-xs text-white/60 mb-0.5">Liters Needed</div>
-                  <div className="text-lg font-semibold text-white">{result.litersNeeded}L</div>
-                </div>
-                <div className="p-2.5 bg-white/5 rounded-lg">
-                  <div className="text-xs text-white/60 mb-0.5">Coverage</div>
-                  <div className="text-lg font-semibold text-white">{result.coverageData.coveragePerLiter}m²/L</div>
-                </div>
-              </div>
-
-              {/* Container Breakdown */}
-              <div className="p-2.5 bg-white/5 rounded-lg">
-                <div className="text-xs text-white/60 mb-1.5">Recommended Purchase</div>
-                <div className="space-y-1">
-                  {result.containersNeeded.map((c, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span>{c.quantity}x {c.size}</span>
-                      <span className="text-white/60">
-                        €{((result.estimatedCost.breakdown[i]?.unitPrice || 0) * c.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="p-3 bg-[#C9A86C]/20 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/80">Total Estimate</span>
-                  <span className="text-xl font-semibold text-[#C9A86C]">€{result.estimatedCost.eur.toFixed(2)}</span>
-                </div>
-                <p className="text-xs text-white/50 mt-1">
-                  {line.name} · {sheen.label} · {coats} coats · IVA incluido
-                </p>
-              </div>
-
-              {/* Tech Data */}
-              <div className="text-xs text-white/50 space-y-0.5">
-                <div className="flex justify-between">
-                  <span>Product</span>
-                  <span className="font-mono">{sheen.productNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Finish</span>
-                  <span>{result.coverageData.finish}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Dry Time (touch)</span>
-                  <span>{result.coverageData.dryTime.touchDry}h</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Recoat Time</span>
-                  <span>{result.coverageData.dryTime.recoat}h</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>VOC</span>
-                  <span>{result.coverageData.voc}</span>
-                </div>
-              </div>
-
-              {/* Calculator → Cart Bridge */}
-              {selectedColor && (
-                <CalculatorCartBridge
-                  result={result}
-                  selectedColor={{
-                    name: selectedColor.name,
-                    colorCode: selectedColor.colorCode,
-                    hexCode: selectedColor.hexCode,
-                  }}
-                  productLine={line.name}
-                  productNumber={sheen.productNumber}
-                  sheen={sheen.label}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-3 text-white/50 text-sm">
-              Enter wall dimensions to calculate
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+  // Sort by prefix first
+  return aPrefix.localeCompare(bPrefix);
 }
-
 
 // ─────────────────────────────────────────────────────────
 // COLOR CARD (Links to SEO product page)
@@ -451,11 +102,11 @@ function BMColorCard({ color }: { color: BMColor }) {
             </h3>
             <p className="text-xs text-muted-foreground">{color.collection}</p>
             <div className="flex items-center justify-between pt-2">
-              <span className="text-sm font-semibold text-[#C9A86C]">
-                €{color.priceEur.toFixed(2)}
+              <span className="text-sm font-semibold" style={{ color: ACCENT }}>
+                &euro;{color.priceEur.toFixed(2)}
               </span>
               <Badge variant="outline" className="text-xs">
-                {color.finishType.split(' ')[0]}
+                {color.finishType?.split(' ')[0] || 'Paint'}
               </Badge>
             </div>
           </CardContent>
@@ -471,15 +122,18 @@ function BMColorCard({ color }: { color: BMColor }) {
 
 export default function BenjaminMoorePage() {
   const [colors, setColors] = useState<BMColor[]>([]);
-  const [selectedColor, setSelectedColor] = useState<BMColor | null>(null);
-  const [lrvRange, setLrvRange] = useState<[number, number]>([0, 100]);
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeProductTab, setActiveProductTab] = useState('paint');
 
-  // Dynamic collections built from DynamoDB data
-  const [collectionGroups, setCollectionGroups] = useState<CollectionGroup[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
+  // Build collection counts from data
+  const collectionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    colors.forEach((c) => {
+      const col = c.collection || 'Unknown';
+      counts.set(col, (counts.get(col) || 0) + 1);
+    });
+    return counts;
+  }, [colors]);
 
   useEffect(() => {
     async function fetchColors() {
@@ -487,38 +141,9 @@ export default function BenjaminMoorePage() {
         const response = await fetch('/api/colors?brand=BM');
         if (response.ok) {
           const data = await response.json();
+          // Sort by ID ascending for gradient flow
+          data.sort(sortByIdAscending);
           setColors(data);
-
-          // Build dynamic collection map from actual data
-          const counts = new Map<string, number>();
-          data.forEach((c: BMColor) => {
-            const col = c.collection || 'Unknown';
-            counts.set(col, (counts.get(col) || 0) + 1);
-          });
-
-          setTotalCount(data.length);
-
-          // Group into Core Collections and Design Trends
-          const core: { name: string; displayName: string; count: number }[] = [];
-          const trends: { name: string; displayName: string; count: number }[] = [];
-
-          for (const [name, count] of counts.entries()) {
-            const entry = { name, displayName: cleanCollectionName(name), count };
-            if (isCorCollection(name)) {
-              core.push(entry);
-            } else {
-              trends.push(entry);
-            }
-          }
-
-          // Sort: core by count descending, trends by name
-          core.sort((a, b) => b.count - a.count);
-          trends.sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-          const groups: CollectionGroup[] = [];
-          if (core.length > 0) groups.push({ label: 'Core Collections', items: core });
-          if (trends.length > 0) groups.push({ label: 'Design Trends', items: trends });
-          setCollectionGroups(groups);
         }
       } catch (error) {
         console.error('Failed to fetch colors:', error);
@@ -527,38 +152,30 @@ export default function BenjaminMoorePage() {
     fetchColors();
   }, []);
 
-  // Filter colors — selectedCollection is either 'all' or the raw DynamoDB collection name
-  const filteredColors = colors.filter((color) => {
-    const lrv = calculateLRV(color.hexCode);
-    const lrvMatch = lrv >= lrvRange[0] && lrv <= lrvRange[1];
+  // Filter colors
+  const filteredColors = useMemo(() => {
+    return colors.filter((color) => {
+      const collectionMatch = matchesCollection(color.collection, selectedCollection, 'BM');
+      const searchMatch =
+        !searchQuery ||
+        color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
+      return collectionMatch && searchMatch;
+    });
+  }, [colors, selectedCollection, searchQuery]);
 
-    const collectionMatch =
-      selectedCollection === 'all' || color.collection === selectedCollection;
-
-    const searchMatch =
-      !searchQuery ||
-      color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return lrvMatch && collectionMatch && searchMatch;
-  });
-
-  const productTabs = useMemo(() => [
-    { id: 'paint', label: 'Paint', count: colors.length },
-  ], [colors.length]);
-
-  // Find the display name for the currently selected collection
-  const selectedDisplayName =
-    selectedCollection === 'all'
-      ? 'All Benjamin Moore Colors'
-      : collectionGroups
-          .flatMap((g) => g.items)
-          .find((i) => i.name === selectedCollection)?.displayName || selectedCollection;
+  // Get display name for selected collection
+  const getDisplayName = () => {
+    if (selectedCollection === 'all') return 'All Benjamin Moore Colors';
+    if (selectedCollection === 'Color Trends') return 'Color Trends Collection';
+    if (selectedCollection === 'Benjamin Moore Classics') return 'Classics Collection';
+    return selectedCollection;
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
-      {/* Pro Header */}
-      <header className="bg-[#2C2C2C] text-white sticky top-0 z-40">
+      {/* Header */}
+      <header className="text-white sticky top-0 z-40" style={{ backgroundColor: BG_DARK }}>
         <div className="container mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
             <Link
@@ -571,8 +188,8 @@ export default function BenjaminMoorePage() {
               Grand Lobby
             </Link>
             <div className="flex items-center gap-3">
-              <Badge className="bg-[#C9A86C]/20 text-[#C9A86C]">Production API</Badge>
-              <Badge className="bg-[#C9A86C] text-[#2C2C2C]">
+              <Badge style={{ backgroundColor: `${ACCENT}30`, color: ACCENT }}>Production API</Badge>
+              <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
                 {filteredColors.length} Colors
               </Badge>
               <CartBadge />
@@ -582,11 +199,11 @@ export default function BenjaminMoorePage() {
       </header>
 
       {/* Hero */}
-      <section className="bg-[#2C2C2C] text-white py-8">
+      <section className="text-white py-8" style={{ backgroundColor: BG_DARK }}>
         <div className="container mx-auto px-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-1 h-5 bg-[#C9A86C] rounded-full" />
-            <span className="text-[#C9A86C] font-medium uppercase tracking-wider text-xs">
+            <div className="w-1 h-5 rounded-full" style={{ backgroundColor: ACCENT }} />
+            <span className="font-medium uppercase tracking-wider text-xs" style={{ color: ACCENT }}>
               Technical Boutique · BM Production API
             </span>
           </div>
@@ -594,163 +211,77 @@ export default function BenjaminMoorePage() {
             Benjamin Moore
           </h1>
           <p className="text-white/60 text-sm max-w-xl">
-            4,000+ official colors with real BM Color Discovery, Professional Calculator, and Room Visualizer.
+            4,000+ official colors sorted in gradient flow. Click any color for product details, visualizer, and calculator.
           </p>
         </div>
       </section>
 
-      {/* Product Tabs */}
-      <BrandPageTabs
-        tabs={productTabs}
-        activeTab={activeProductTab}
-        onTabChange={setActiveProductTab}
-        accentColor="#C9A86C"
-        bgColor="#2C2C2C"
-        textColor="#FFFFFF"
-      />
+      {/* Main Content - Full Width Gallery */}
+      <main className="container mx-auto px-6 py-6">
+        {/* Collection Hero Navigation */}
+        <BrandCollectionHero
+          brand="BM"
+          selectedCollection={selectedCollection}
+          onSelect={setSelectedCollection}
+          collectionCounts={collectionCounts}
+        />
 
-      {/* Main Layout */}
-      <main className="container mx-auto px-6 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <aside className="lg:w-80 shrink-0 space-y-5">
-            {/* Calculator */}
-            <ProfessionalCalculator selectedColor={selectedColor} />
-
-            {/* Search */}
-            <Card className="bg-[#2C2C2C] text-white border-0">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Search
-                </h3>
-                <Input
-                  type="text"
-                  placeholder="Color name or code..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
-                />
-              </CardContent>
-            </Card>
-
-            {/* LRV Range */}
-            <Card className="bg-[#2C2C2C] text-white border-0">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#C9A86C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  LRV Range
-                </h3>
-                <Slider
-                  value={lrvRange}
-                  onValueChange={(v) => setLrvRange(v as [number, number])}
-                  min={0}
-                  max={100}
-                  step={5}
-                />
-                <div className="flex justify-between text-xs text-white/60 mt-2">
-                  <span>Dark ({lrvRange[0]})</span>
-                  <span>Light ({lrvRange[1]})</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Dynamic Collections from DynamoDB */}
-            <Card className="bg-[#2C2C2C] text-white border-0">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3">Collections</h3>
-                <div className="space-y-1">
-                  {/* All Colors button */}
-                  <button
-                    onClick={() => setSelectedCollection('all')}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                      selectedCollection === 'all'
-                        ? 'bg-[#C9A86C] text-[#2C2C2C]'
-                        : 'hover:bg-white/10 text-white/80'
-                    }`}
-                  >
-                    <span>All Collections</span>
-                    <span className="text-xs opacity-60">{totalCount}</span>
-                  </button>
-
-                  {/* Grouped collections */}
-                  {collectionGroups.map((group) => (
-                    <div key={group.label}>
-                      <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold mt-3 mb-1 px-3">
-                        {group.label}
-                      </div>
-                      {group.items.map((col) => (
-                        <button
-                          key={col.name}
-                          onClick={() => setSelectedCollection(col.name)}
-                          className={`w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                            selectedCollection === col.name
-                              ? 'bg-[#C9A86C] text-[#2C2C2C]'
-                              : 'hover:bg-white/10 text-white/80'
-                          }`}
-                        >
-                          <span className="truncate mr-2">{col.displayName}</span>
-                          <span className="text-xs opacity-60 shrink-0">{col.count}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
-
-          {/* Color Grid */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-foreground">
-                {selectedDisplayName}
-              </h2>
-              <span className="text-sm text-muted-foreground">
-                {filteredColors.length} colors · Click to view details
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              <AnimatePresence mode="popLayout">
-                {filteredColors.slice(0, 200).map((color) => (
-                  <motion.div
-                    key={color.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                  >
-                    <BMColorCard color={color} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            {filteredColors.length > 200 && (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Showing 200 of {filteredColors.length} colors. Use search or filters to narrow results.
-              </div>
-            )}
-
-            {filteredColors.length === 0 && (
-              <div className="text-center py-16 text-muted-foreground">
-                <p>No colors match your filter criteria.</p>
-              </div>
-            )}
+        {/* Search Bar */}
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-semibold text-foreground">
+              {getDisplayName()}
+            </h2>
+            <span className="text-sm text-muted-foreground">
+              {filteredColors.length} colors
+            </span>
+          </div>
+          <div className="w-64">
+            <Input
+              type="text"
+              placeholder="Search colors..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-white border-gray-200"
+            />
           </div>
         </div>
+
+        {/* Full Width Color Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filteredColors.slice(0, 300).map((color) => (
+              <motion.div
+                key={color.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <BMColorCard color={color} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {filteredColors.length > 300 && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Showing 300 of {filteredColors.length} colors. Use search to narrow results.
+          </div>
+        )}
+
+        {filteredColors.length === 0 && (
+          <div className="text-center py-16 text-muted-foreground">
+            <p>No colors match your search.</p>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="border-t border-[#E8E2D9] bg-white mt-auto">
         <div className="container mx-auto px-6 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <span>Benjamin Moore® Production API · BM Decoraci&oacute;n, Marbella</span>
+            <span>Benjamin Moore&reg; Production API · BM Decoraci&oacute;n, Marbella</span>
             <span>IVA Incluido (21%) · Prices in EUR</span>
           </div>
         </div>

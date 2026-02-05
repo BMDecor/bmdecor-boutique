@@ -6,10 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
-import GenericPaintCalculator from '@/components/GenericPaintCalculator';
 import CartBadge from '@/components/cart/CartBadge';
 import BrandPageTabs from '@/components/BrandPageTabs';
+import BrandCollectionHero, { matchesCollection } from '@/components/shared/BrandCollectionHero';
 import WallpaperCard, { type WallpaperData } from '@/components/WallpaperCard';
 import WallpaperDrawer from '@/components/WallpaperDrawer';
 import { createSlug } from '@/lib/utils/slugs';
@@ -32,35 +31,6 @@ interface LGColor {
   inStock: boolean;
 }
 
-const LG_FINISH_TYPES = [
-  'Intelligent Matt Emulsion',
-  'Absolute Matt Emulsion',
-  'Intelligent Eggshell',
-  'Intelligent Satin',
-  'Intelligent Gloss',
-  'Intelligent Exterior Eggshell',
-  'Intelligent ASP',
-  "Tom's Oil Eggshell",
-  'Traditional Oil Gloss',
-  'Intelligent Floor Paint',
-  'Interior Oil Eggshell',
-  'Intelligent Masonry Paint',
-  'Wall Primer Sealer',
-  'Distemper',
-  'Limewash',
-];
-
-// Main collection groups — colors with dual-membership (e.g. "Colours of England/CS-Stone")
-// are matched via includes() so they appear under both parent groups.
-// CS-Stone and CS-Grey are sub-collections of Colour Scales.
-const LG_COLLECTIONS = [
-  'Colours of England',
-  'Colour Scales',
-  'CS-Stone',
-  'CS-Grey',
-  'Sweet Treats',
-];
-
 // Theme
 const ACCENT = '#E8E4D9';
 const BG_DARK = '#4A5240';
@@ -77,6 +47,14 @@ function calculateLRV(hex: string): number {
 
 function getTextColor(hex: string): string {
   return calculateLRV(hex) > 50 ? '#2C2C2C' : '#FFFFFF';
+}
+
+// Sort by color code ascending for gradient flow
+function sortByIdAscending(a: LGColor, b: LGColor): number {
+  // LG codes are numeric (e.g., "87", "138")
+  const aNum = parseInt(a.colorCode, 10) || 0;
+  const bNum = parseInt(b.colorCode, 10) || 0;
+  return aNum - bNum;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -144,22 +122,22 @@ function LGColorCard({ color }: { color: LGColor }) {
 export default function LittleGreenePage() {
   const [colors, setColors] = useState<LGColor[]>([]);
   const [wallpapers, setWallpapers] = useState<WallpaperData[]>([]);
-  const [selectedColor, setSelectedColor] = useState<LGColor | null>(null);
   const [selectedWallpaper, setSelectedWallpaper] = useState<WallpaperData | null>(null);
-  const [lrvRange, setLrvRange] = useState<[number, number]>([0, 100]);
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [wpCollection, setWpCollection] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [wpSearchQuery, setWpSearchQuery] = useState('');
-  const [selectedFinish, setSelectedFinish] = useState('Intelligent Matt Emulsion');
   const [activeProductTab, setActiveProductTab] = useState('paint');
 
-  // Collection counts — use includes() so dual-membership colors count under both groups
-  const collectionCounts = new Map<string, number>();
-  LG_COLLECTIONS.forEach((col) => {
-    const count = colors.filter((c) => (c.collection || '').includes(col)).length;
-    collectionCounts.set(col, count);
-  });
+  // Build collection counts from data (handling dual-membership)
+  const collectionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    colors.forEach((c) => {
+      const col = c.collection || 'Unknown';
+      counts.set(col, (counts.get(col) || 0) + 1);
+    });
+    return counts;
+  }, [colors]);
 
   // Wallpaper collections
   const wpCollections = useMemo(() => {
@@ -177,6 +155,8 @@ export default function LittleGreenePage() {
         const response = await fetch('/api/colors?brand=LG');
         if (response.ok) {
           const data = await response.json();
+          // Sort by ID ascending for gradient flow
+          data.sort(sortByIdAscending);
           setColors(data);
         }
       } catch (error) {
@@ -198,16 +178,23 @@ export default function LittleGreenePage() {
     fetchWallpapers();
   }, []);
 
-  const filteredColors = colors.filter((color) => {
-    const lrv = calculateLRV(color.hexCode);
-    const lrvMatch = lrv >= lrvRange[0] && lrv <= lrvRange[1];
-    const collectionMatch = selectedCollection === 'all' || (color.collection || '').includes(selectedCollection);
-    const searchMatch =
-      !searchQuery ||
-      color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
-    return lrvMatch && collectionMatch && searchMatch;
-  });
+  // Filter colors
+  const filteredColors = useMemo(() => {
+    return colors.filter((color) => {
+      const collectionMatch = matchesCollection(color.collection, selectedCollection, 'LG');
+      const searchMatch =
+        !searchQuery ||
+        color.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        color.colorCode.toLowerCase().includes(searchQuery.toLowerCase());
+      return collectionMatch && searchMatch;
+    });
+  }, [colors, selectedCollection, searchQuery]);
+
+  // Get display name for selected collection
+  const getDisplayName = () => {
+    if (selectedCollection === 'all') return 'All Little Greene Colours';
+    return selectedCollection;
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
@@ -250,7 +237,7 @@ export default function LittleGreenePage() {
             Little Greene
           </h1>
           <p className="text-white/60 text-sm max-w-xl">
-            204 colours from the official Master Product List. Colours of England, Colour Scales &amp; Sweet Treats collections.
+            204 colours sorted in gradient flow. Click any colour for product details and finish options.
           </p>
         </div>
       </section>
@@ -267,137 +254,41 @@ export default function LittleGreenePage() {
         bgColor={BG_DARK}
       />
 
-      {/* Main Layout */}
-      <main className="container mx-auto px-6 py-8">
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-6">
         {activeProductTab === 'paint' ? (
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <aside className="lg:w-80 shrink-0 space-y-5">
-            {/* Calculator */}
-            <GenericPaintCalculator
+          <>
+            {/* Collection Hero Navigation */}
+            <BrandCollectionHero
               brand="LG"
-              brandName="Little Greene"
-              accentColor={ACCENT}
-              bgColor={BG_DARK}
-              selectedColor={selectedColor ? { name: selectedColor.name, colorCode: selectedColor.colorCode, hexCode: selectedColor.hexCode } : null}
-              finishType={selectedFinish}
-              coverageRate={13}
+              selectedCollection={selectedCollection}
+              onSelect={setSelectedCollection}
+              collectionCounts={collectionCounts}
             />
 
-            {/* Search */}
-            <Card className="border-0 text-white" style={{ backgroundColor: BG_DARK }}>
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4" style={{ color: ACCENT }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Search
-                </h3>
+            {/* Search Bar */}
+            <div className="flex items-center justify-between mb-6 gap-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  {getDisplayName()}
+                </h2>
+                <span className="text-sm text-muted-foreground">
+                  {filteredColors.length} colours
+                </span>
+              </div>
+              <div className="w-64">
                 <Input
                   type="text"
-                  placeholder="Colour name or code..."
+                  placeholder="Search colours..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                  className="bg-white border-gray-200"
                 />
-              </CardContent>
-            </Card>
-
-            {/* LRV Range */}
-            <Card className="border-0 text-white" style={{ backgroundColor: BG_DARK }}>
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4" style={{ color: ACCENT }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  LRV Range
-                </h3>
-                <Slider
-                  value={lrvRange}
-                  onValueChange={(v) => setLrvRange(v as [number, number])}
-                  min={0}
-                  max={100}
-                  step={5}
-                />
-                <div className="flex justify-between text-xs text-white/60 mt-2">
-                  <span>Dark ({lrvRange[0]})</span>
-                  <span>Light ({lrvRange[1]})</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Collections */}
-            <Card className="border-0 text-white" style={{ backgroundColor: BG_DARK }}>
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3">Collections</h3>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => setSelectedCollection('all')}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                      selectedCollection === 'all' ? 'text-[#2C2C2C]' : 'hover:bg-white/10 text-white/80'
-                    }`}
-                    style={selectedCollection === 'all' ? { backgroundColor: ACCENT } : undefined}
-                  >
-                    <span>All Colours</span>
-                    <span className="text-xs opacity-60">{colors.length}</span>
-                  </button>
-                  {LG_COLLECTIONS.map((col) => {
-                    const count = collectionCounts.get(col) || 0;
-                    if (count === 0) return null;
-                    return (
-                      <button
-                        key={col}
-                        onClick={() => setSelectedCollection(col)}
-                        className={`w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                          selectedCollection === col ? 'text-[#2C2C2C]' : 'hover:bg-white/10 text-white/80'
-                        }`}
-                        style={selectedCollection === col ? { backgroundColor: ACCENT } : undefined}
-                      >
-                        <span>{col}</span>
-                        <span className="text-xs opacity-60">{count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Finish Selector (for calculator) */}
-            <Card className="border-0 text-white" style={{ backgroundColor: BG_DARK }}>
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3">Calculator Finish</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {LG_FINISH_TYPES.map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setSelectedFinish(f)}
-                      className={`px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                        selectedFinish === f
-                          ? 'text-[#2C2C2C] font-medium'
-                          : 'bg-white/10 text-white/70 hover:bg-white/20'
-                      }`}
-                      style={selectedFinish === f ? { backgroundColor: ACCENT } : undefined}
-                    >
-                      {f.replace('Intelligent ', 'I. ').replace('Absolute ', 'Abs. ')}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
-
-          {/* Color Grid */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-foreground">
-                {selectedCollection === 'all' ? 'All Little Greene Colours' : selectedCollection}
-              </h2>
-              <span className="text-sm text-muted-foreground">
-                {filteredColors.length} colours
-              </span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* Full Width Color Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               <AnimatePresence mode="popLayout">
                 {filteredColors.map((color) => (
                   <motion.div
@@ -415,86 +306,54 @@ export default function LittleGreenePage() {
 
             {filteredColors.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
-                <p>No colours match your filter criteria.</p>
+                <p>No colours match your search.</p>
               </div>
             )}
-          </div>
-        </div>
+          </>
         ) : (
-        /* ─── WALLPAPER TAB ─── */
-        <div className="flex flex-col lg:flex-row gap-8 bg-[#2a2f26] -mx-6 px-6 py-8 rounded-xl text-white">
-          {/* Wallpaper Sidebar */}
-          <aside className="lg:w-80 shrink-0 space-y-5">
-            {/* Search */}
-            <Card className="border-0 text-white" style={{ backgroundColor: BG_DARK }}>
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4" style={{ color: ACCENT }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Search Wallpapers
-                </h3>
+          /* ─── WALLPAPER TAB ─── */
+          <div className="bg-[#2a2f26] -mx-6 px-6 py-8 rounded-xl text-white">
+            {/* Wallpaper Search and Filter */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold">
+                  {wpCollection === 'all' ? 'All Little Greene Wallpapers' : wpCollection}
+                </h2>
+                <span className="text-sm text-white/60">
+                  {wallpapers.filter((wp) => {
+                    const colMatch = wpCollection === 'all' || wp.collection === wpCollection;
+                    const searchMatch = !wpSearchQuery ||
+                      wp.name.toLowerCase().includes(wpSearchQuery.toLowerCase()) ||
+                      (wp.colourway || '').toLowerCase().includes(wpSearchQuery.toLowerCase()) ||
+                      (wp.designName || '').toLowerCase().includes(wpSearchQuery.toLowerCase());
+                    return colMatch && searchMatch;
+                  }).length} designs
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
                 <Input
                   type="text"
-                  placeholder="Design name or colourway..."
+                  placeholder="Search designs..."
                   value={wpSearchQuery}
                   onChange={(e) => setWpSearchQuery(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 w-48"
                 />
-              </CardContent>
-            </Card>
-
-            {/* Wallpaper Collections */}
-            <Card className="border-0 text-white" style={{ backgroundColor: BG_DARK }}>
-              <CardContent className="p-5">
-                <h3 className="text-sm font-semibold mb-3">Collections</h3>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => setWpCollection('all')}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                      wpCollection === 'all' ? 'text-[#2C2C2C]' : 'hover:bg-white/10 text-white/80'
-                    }`}
-                    style={wpCollection === 'all' ? { backgroundColor: ACCENT } : undefined}
-                  >
-                    <span>All Designs</span>
-                    <span className="text-xs opacity-60">{wallpapers.length}</span>
-                  </button>
+                <select
+                  value={wpCollection}
+                  onChange={(e) => setWpCollection(e.target.value)}
+                  className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-2"
+                >
+                  <option value="all" className="bg-[#2a2f26]">All Collections</option>
                   {wpCollections.map(([col, count]) => (
-                    <button
-                      key={col}
-                      onClick={() => setWpCollection(col)}
-                      className={`w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center justify-between ${
-                        wpCollection === col ? 'text-[#2C2C2C]' : 'hover:bg-white/10 text-white/80'
-                      }`}
-                      style={wpCollection === col ? { backgroundColor: ACCENT } : undefined}
-                    >
-                      <span>{col}</span>
-                      <span className="text-xs opacity-60">{count}</span>
-                    </button>
+                    <option key={col} value={col} className="bg-[#2a2f26]">
+                      {col} ({count})
+                    </option>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
-
-          {/* Wallpaper Grid */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-foreground">
-                {wpCollection === 'all' ? 'All Little Greene Wallpapers' : wpCollection}
-              </h2>
-              <span className="text-sm text-muted-foreground">
-                {wallpapers.filter((wp) => {
-                  const colMatch = wpCollection === 'all' || wp.collection === wpCollection;
-                  const searchMatch = !wpSearchQuery ||
-                    wp.name.toLowerCase().includes(wpSearchQuery.toLowerCase()) ||
-                    (wp.colourway || '').toLowerCase().includes(wpSearchQuery.toLowerCase()) ||
-                    (wp.designName || '').toLowerCase().includes(wpSearchQuery.toLowerCase());
-                  return colMatch && searchMatch;
-                }).length} designs
-              </span>
+                </select>
+              </div>
             </div>
 
+            {/* Wallpaper Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               <AnimatePresence mode="popLayout">
                 {wallpapers
@@ -517,7 +376,6 @@ export default function LittleGreenePage() {
               </AnimatePresence>
             </div>
           </div>
-        </div>
         )}
       </main>
 
