@@ -98,8 +98,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(counts);
   } catch (error) {
     console.error('Error fetching color counts:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      brand ? { total: 0, collections: {} } : { BM: 0, FB: 0, LG: 0 },
+      brand
+        ? { total: 0, collections: {}, _error: errorMsg }
+        : { BM: 0, FB: 0, LG: 0, _error: errorMsg },
       { status: 200 }
     );
   }
