@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import CartBadge from '@/components/cart/CartBadge';
 import MetricVariantSelector from '@/components/cart/MetricVariantSelector';
 import type { MetricSelectedVariant } from '@/components/cart/MetricVariantSelector';
 import AddToBagButton from '@/components/cart/AddToBagButton';
@@ -94,12 +93,6 @@ export default function StandardColorView({
               </svg>
               Back to {brandName}
             </Link>
-            <div className="flex items-center gap-3">
-              <Badge style={{ backgroundColor: `${accentColor}30`, color: accentColor }}>
-                Official Catalogue
-              </Badge>
-              <CartBadge />
-            </div>
           </div>
         </div>
       </header>

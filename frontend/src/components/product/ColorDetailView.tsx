@@ -11,7 +11,6 @@ import { Slider } from '@/components/ui/slider';
 import type { ComplementaryResult, RoomScene, CalculatorResult } from '@/lib/api/benjamin-moore';
 import type { SelectedVariant } from '@/lib/cart/types';
 import UniversalVisualizer from '@/components/UniversalVisualizer';
-import CartBadge from '@/components/cart/CartBadge';
 import VariantSelector from '@/components/cart/VariantSelector';
 import AddToBagButton from '@/components/cart/AddToBagButton';
 import StickySubtotalBar from '@/components/cart/StickySubtotalBar';
@@ -466,10 +465,6 @@ export default function ColorDetailView({ product, brandName, allBrandColors }: 
               </svg>
               Back to {brandName}
             </Link>
-            <div className="flex items-center gap-3">
-              <Badge className="bg-[#C9A86C]/20 text-[#C9A86C]">Production API</Badge>
-              <CartBadge />
-            </div>
           </div>
         </div>
       </header>
