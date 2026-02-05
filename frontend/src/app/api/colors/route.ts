@@ -79,22 +79,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // When a collection filter is specified, fetch all items to properly filter
-    // Otherwise use pagination for performance
-    if (collection && brand) {
-      // Fetch all items for the brand, then filter by collection
+    // For proper sorting, fetch all items for the brand, sort globally, then paginate
+    // This ensures consistent numeric ordering across all pages
+    if (brand) {
       const allBrandItems = await fetchAllItemsForBrand(brand, productType);
 
-      // Filter by collection
-      const collectionFiltered = allBrandItems.filter((item) => {
-        const itemCol = String(item.collection || '');
-        return itemCol.includes(collection);
-      });
+      // Filter by collection if specified
+      let filtered = allBrandItems;
+      if (collection) {
+        filtered = allBrandItems.filter((item) => {
+          const itemCol = String(item.collection || '');
+          return itemCol.includes(collection);
+        });
+      }
 
-      // Sort results
-      const sorted = sortItems(collectionFiltered, sortBy, sortOrder);
+      // Sort results globally
+      const sorted = sortItems(filtered, sortBy, sortOrder);
 
-      // Apply cursor-based pagination on filtered results
+      // Apply cursor-based pagination on sorted results
       const cursorIndex = cursor ? parseInt(cursor, 10) || 0 : 0;
       const paginatedItems = sorted.slice(cursorIndex, cursorIndex + limit);
       const nextCursorIndex = cursorIndex + limit;
@@ -107,68 +109,25 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Non-search, non-collection mode: use DynamoDB pagination
+    // No brand specified - use DynamoDB scan (rare case)
     const allItems: Record<string, unknown>[] = [];
     let lastKey = exclusiveStartKey;
-    let fetchedCount = 0;
     const fetchLimit = limit * 3; // Fetch more to account for filtering
 
-    if (brand) {
-      // Query by brand using GSI
-      const result = await docClient.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: 'GSI-Brand',
-          KeyConditionExpression: 'brand = :brand',
-          FilterExpression: 'entityType = :type',
-          ExpressionAttributeValues: {
-            ':brand': brand,
-            ':type': 'PRODUCT',
-          },
-          ExclusiveStartKey: lastKey,
-          Limit: fetchLimit,
-        })
-      );
-      if (result.Items) allItems.push(...result.Items);
-      lastKey = result.LastEvaluatedKey;
-      fetchedCount = result.Items?.length || 0;
-
-      // Continue fetching if we don't have enough items after filtering
-      while (lastKey && fetchedCount < limit * 2) {
-        const moreResult = await docClient.send(
-          new QueryCommand({
-            TableName: TABLE_NAME,
-            IndexName: 'GSI-Brand',
-            KeyConditionExpression: 'brand = :brand',
-            FilterExpression: 'entityType = :type',
-            ExpressionAttributeValues: {
-              ':brand': brand,
-              ':type': 'PRODUCT',
-            },
-            ExclusiveStartKey: lastKey,
-            Limit: fetchLimit,
-          })
-        );
-        if (moreResult.Items) allItems.push(...moreResult.Items);
-        lastKey = moreResult.LastEvaluatedKey;
-        fetchedCount += moreResult.Items?.length || 0;
-      }
-    } else {
-      // Scan all products
-      const result = await docClient.send(
-        new ScanCommand({
-          TableName: TABLE_NAME,
-          FilterExpression: 'entityType = :type',
-          ExpressionAttributeValues: {
-            ':type': 'PRODUCT',
-          },
-          ExclusiveStartKey: lastKey,
-          Limit: fetchLimit,
-        })
-      );
-      if (result.Items) allItems.push(...result.Items);
-      lastKey = result.LastEvaluatedKey;
-    }
+    // Scan all products
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'entityType = :type',
+        ExpressionAttributeValues: {
+          ':type': 'PRODUCT',
+        },
+        ExclusiveStartKey: lastKey,
+        Limit: fetchLimit,
+      })
+    );
+    if (result.Items) allItems.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
 
     // Filter by product type
     let filtered = allItems.filter((item) => {
