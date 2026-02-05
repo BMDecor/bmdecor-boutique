@@ -31,13 +31,12 @@ export async function GET(request: NextRequest) {
             TableName: TABLE_NAME,
             IndexName: 'GSI-Brand',
             KeyConditionExpression: 'brand = :brand',
-            FilterExpression: 'entityType = :type AND (attribute_not_exists(productType) OR productType = :pt)',
+            FilterExpression: 'entityType = :type',
             ExpressionAttributeValues: {
               ':brand': brand,
               ':type': 'PRODUCT',
-              ':pt': 'paint',
             },
-            ProjectionExpression: 'collection',
+            ProjectionExpression: 'collection, productType',
             ExclusiveStartKey: lastKey,
           })
         );
@@ -45,16 +44,22 @@ export async function GET(request: NextRequest) {
         lastKey = result.LastEvaluatedKey;
       } while (lastKey);
 
+      // Filter to paint products only (in memory since productType may not be in GSI)
+      const paintItems = allItems.filter((item) => {
+        const pt = item.productType as string | undefined;
+        return !pt || pt === 'paint';
+      });
+
       // Build collection counts
       const collections: Record<string, number> = {};
-      for (const item of allItems) {
+      for (const item of paintItems) {
         const col = String(item.collection || 'Unknown');
         collections[col] = (collections[col] || 0) + 1;
       }
 
       return NextResponse.json({
-        _v: 2,
-        total: allItems.length,
+        _v: 3,
+        total: paintItems.length,
         collections,
       });
     }
