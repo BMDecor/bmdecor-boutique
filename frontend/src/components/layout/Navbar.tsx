@@ -25,7 +25,7 @@ const BRAND_LINKS = [
 const NAV_LINKS = [
   { href: '/about', label: 'The Atelier' },
   { href: '/services', label: 'Services' },
-  { href: '/blog', label: 'Journal' },
+  { href: '/journal', label: 'Journal' },
   { href: '/faqs', label: 'FAQs' },
   { href: '/contact', label: 'Visit Us' },
 ];

@@ -77,8 +77,6 @@ function BrandHouseCard({
   colorCount: number;
   index: number;
 }) {
-  const isComingSoon = colorCount === 0;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -87,12 +85,12 @@ function BrandHouseCard({
       className="relative h-full"
     >
       <Link
-        href={isComingSoon ? '#' : `/${brand.slug}`}
-        className={`block h-full ${isComingSoon ? 'cursor-not-allowed' : ''}`}
+        href={`/${brand.slug}`}
+        className="block h-full"
       >
         <motion.div
-          whileHover={isComingSoon ? {} : { scale: 1.02 }}
-          whileTap={isComingSoon ? {} : { scale: 0.98 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           className="relative h-full overflow-hidden rounded-2xl group"
           style={{
             boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
@@ -115,9 +113,7 @@ function BrandHouseCard({
               src={brand.imageUrl}
               alt={`${brand.name} interior showcase`}
               fill
-              className={`object-cover transition-transform duration-700 ${
-                isComingSoon ? 'grayscale' : 'group-hover:scale-105'
-              }`}
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, 33vw"
               priority={index === 0}
             />
@@ -148,40 +144,32 @@ function BrandHouseCard({
 
             {/* CTA with Color Count */}
             <div className="flex items-center justify-between">
-              {isComingSoon ? (
-                <span
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white/10 text-white/70"
+              <motion.span
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300"
+                style={{
+                  backgroundColor: `${brand.accentColor}20`,
+                  color: brand.accentColor,
+                }}
+                whileHover={{
+                  backgroundColor: brand.accentColor,
+                  color: '#2C2C2C',
+                }}
+              >
+                {colorCount > 0 ? `Explore ${colorCount} ${brand.cta}` : 'Explore Collection'}
+                <svg
+                  className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  Coming Soon
-                </span>
-              ) : (
-                <motion.span
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300"
-                  style={{
-                    backgroundColor: `${brand.accentColor}20`,
-                    color: brand.accentColor,
-                  }}
-                  whileHover={{
-                    backgroundColor: brand.accentColor,
-                    color: '#2C2C2C',
-                  }}
-                >
-                  Explore {colorCount} {brand.cta}
-                  <svg
-                    className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                    />
-                  </svg>
-                </motion.span>
-              )}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+              </motion.span>
             </div>
           </div>
         </motion.div>
