@@ -1,13 +1,19 @@
 import { MetadataRoute } from 'next';
-import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { createSlug } from '@/lib/utils/slugs';
 import { BASE_URL } from '@/lib/utils/env';
+import { paginatedQuery } from '@/lib/aws/dynamo-helpers';
 
 interface ProductItem {
   brand: string;
   name: string;
   colorCode: string;
+  updatedAt?: string;
+}
+
+interface ArticleItem {
+  slug: string;
   updatedAt?: string;
 }
 
@@ -51,10 +57,36 @@ async function getAllProducts(): Promise<ProductItem[]> {
 }
 
 /**
- * Generate dynamic sitemap for all products and static pages.
+ * Fetch all published journal articles from DynamoDB.
+ */
+async function getAllArticles(): Promise<ArticleItem[]> {
+  try {
+    const items = await paginatedQuery({
+      IndexName: 'GSI-EntityType',
+      KeyConditionExpression: 'entityType = :type',
+      ExpressionAttributeValues: { ':type': 'ARTICLE' },
+    });
+
+    return items
+      .filter((item) => item.status === 'published')
+      .map((item) => ({
+        slug: String(item.slug || ''),
+        updatedAt: item.updatedAt ? String(item.updatedAt) : undefined,
+      }));
+  } catch (error) {
+    console.error('Error fetching articles for sitemap:', error);
+    return [];
+  }
+}
+
+/**
+ * Generate dynamic sitemap for all products, articles, and static pages.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const products = await getAllProducts();
+  const [products, articles] = await Promise.all([
+    getAllProducts(),
+    getAllArticles(),
+  ]);
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
@@ -95,7 +127,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${BASE_URL}/blog`,
+      url: `${BASE_URL}/journal`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.8,
@@ -133,5 +165,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       };
     });
 
-  return [...staticPages, ...productPages];
+  // Journal article pages
+  const articlePages: MetadataRoute.Sitemap = articles
+    .filter((a) => a.slug)
+    .map((article) => ({
+      url: `${BASE_URL}/journal/${article.slug}`,
+      lastModified: article.updatedAt ? new Date(article.updatedAt) : new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    }));
+
+  return [...staticPages, ...productPages, ...articlePages];
 }

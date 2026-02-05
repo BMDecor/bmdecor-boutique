@@ -27,9 +27,15 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
-  title: "BM Decoración — Premium Paint Boutique | Marbella",
+  title: {
+    template: '%s | BM Decoración',
+    default: 'BM Decoración — Premium Paint Boutique',
+  },
   description: "Curated collections from Benjamin Moore, Farrow & Ball, and Little Greene. Premium paints for discerning homes in Marbella and Costa del Sol.",
   keywords: ["paint", "Marbella", "Benjamin Moore", "Farrow & Ball", "Little Greene", "interior design", "premium paint"],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: "website",
     locale: "es_ES",
@@ -39,6 +45,51 @@ export const metadata: Metadata = {
     card: "summary_large_image",
   },
 };
+
+function HomeGoodsStoreJsonLd() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'HomeGoodsStore',
+    name: 'BM Decoración',
+    description: 'Premium paint boutique featuring Benjamin Moore, Farrow & Ball, and Little Greene in Marbella, Spain.',
+    url: BASE_URL,
+    logo: `${BASE_URL}/logo.png`,
+    image: `${BASE_URL}/storefront.jpg`,
+    telephone: '+34 951 127 003',
+    email: 'info@bmdecor.es',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'Calle Dublín, 21',
+      addressLocality: 'Marbella',
+      addressRegion: 'Málaga',
+      postalCode: '29670',
+      addressCountry: 'ES',
+    },
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: 36.49,
+      longitude: -4.98,
+    },
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        opens: '09:00',
+        closes: '18:00',
+      },
+    ],
+    priceRange: '€€€',
+    paymentAccepted: 'Cash, Credit Card',
+    currenciesAccepted: 'EUR',
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
 
 export default function RootLayout({
   children,
@@ -50,6 +101,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} antialiased`}
       >
+        <HomeGoodsStoreJsonLd />
         <AuthProvider>
           <CartProvider>
             <Navbar />

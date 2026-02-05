@@ -3,8 +3,11 @@ import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
 
 export const metadata = {
-  title: 'The Atelier — BM Decoración',
+  title: 'The Atelier',
   description: 'The Art of Color in Andalucía. Discover how BM Decoración brings world-class pigments to the unique light of Marbella.',
+  alternates: {
+    canonical: '/about',
+  },
 };
 
 export default function AboutPage() {

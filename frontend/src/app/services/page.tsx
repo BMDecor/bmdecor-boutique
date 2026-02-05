@@ -2,8 +2,11 @@ import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
 
 export const metadata = {
-  title: 'Services — BM Decoración',
+  title: 'Services',
   description: 'Color consultancy, trade professional support, and reliable delivery across the Costa del Sol.',
+  alternates: {
+    canonical: '/services',
+  },
 };
 
 const SERVICES = [
