@@ -11,7 +11,13 @@ import { Switch } from '@/components/ui/switch';
 import { RichTextEditor } from '@/components/admin/rich-text-editor';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import { toast } from 'sonner';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, ImageIcon } from 'lucide-react';
+
+// Extract first image URL from HTML content
+function extractFirstImage(html: string): string | null {
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
 
 interface Category {
   id: string;
@@ -262,10 +268,22 @@ export default function NewArticlePage() {
                   </button>
                 </div>
               ) : (
-                <ImageUploader
-                  folder="journal"
-                  onUploadComplete={(url) => setFeaturedImage(url)}
-                />
+                <>
+                  {extractFirstImage(content) && (
+                    <button
+                      type="button"
+                      onClick={() => setFeaturedImage(extractFirstImage(content) || '')}
+                      className="w-full flex items-center gap-2 px-3 py-2 mb-2 text-sm border border-[#C9A86C]/30 rounded-lg text-[#C9A86C] bg-[#C9A86C]/5 hover:bg-[#C9A86C]/10 transition-colors"
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      Use image from content
+                    </button>
+                  )}
+                  <ImageUploader
+                    folder="journal"
+                    onUploadComplete={(url) => setFeaturedImage(url)}
+                  />
+                </>
               )}
             </div>
 
