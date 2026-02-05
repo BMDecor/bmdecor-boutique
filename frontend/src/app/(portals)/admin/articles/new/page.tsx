@@ -22,6 +22,13 @@ interface Tag {
   name: string;
 }
 
+const BRAND_OPTIONS = [
+  { value: '', label: 'General (No Brand)' },
+  { value: 'BM', label: 'Benjamin Moore' },
+  { value: 'FB', label: 'Farrow & Ball' },
+  { value: 'LG', label: 'Little Greene' },
+];
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -44,6 +51,7 @@ export default function NewArticlePage() {
   const [excerpt, setExcerpt] = useState('');
   const [featuredImage, setFeaturedImage] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [relatedBrand, setRelatedBrand] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [author, setAuthor] = useState('');
@@ -92,6 +100,7 @@ export default function NewArticlePage() {
           excerpt,
           featuredImage,
           categoryId: categoryId || null,
+          relatedBrand: relatedBrand || null,
           tags,
           status,
           author,
@@ -184,6 +193,22 @@ export default function NewArticlePage() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="bg-white rounded-lg border border-[#2C2C2C]/8 p-4 space-y-3">
+              <h3 className="text-sm font-medium text-[#2C2C2C]">Related Brand</h3>
+              <select
+                value={relatedBrand}
+                onChange={(e) => setRelatedBrand(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-[#2C2C2C]/15 rounded-lg bg-white focus:outline-none focus:border-[#C9A86C]"
+              >
+                {BRAND_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[#2C2C2C]/40">
+                Tag this article to appear on a brand&apos;s journal page.
+              </p>
             </div>
 
             <div className="bg-white rounded-lg border border-[#2C2C2C]/8 p-4 space-y-3">
