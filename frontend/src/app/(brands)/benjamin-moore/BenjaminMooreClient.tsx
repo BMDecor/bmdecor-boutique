@@ -80,7 +80,6 @@ export default function BenjaminMoorePage() {
               Grand Lobby
             </Link>
             <div className="flex items-center gap-3">
-              <Badge style={{ backgroundColor: `${ACCENT}30`, color: ACCENT }}>Production API</Badge>
               <Badge style={{ backgroundColor: ACCENT, color: BG_DARK }}>
                 {totalCount.toLocaleString()} Colors
               </Badge>
@@ -93,12 +92,6 @@ export default function BenjaminMoorePage() {
       {/* Hero */}
       <section className="text-white py-8" style={{ backgroundColor: BG_DARK }}>
         <div className="container mx-auto px-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-1 h-5 rounded-full" style={{ backgroundColor: ACCENT }} />
-            <span className="font-medium uppercase tracking-wider text-xs" style={{ color: ACCENT }}>
-              Technical Boutique · BM Production API
-            </span>
-          </div>
           <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-semibold tracking-tight mb-1">
             Benjamin Moore
           </h1>
