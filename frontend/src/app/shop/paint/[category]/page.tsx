@@ -165,23 +165,37 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                     className="group bg-white rounded-xl border border-[#E8E2D9] overflow-hidden hover:shadow-lg transition-shadow"
                   >
                     {/* Product Image */}
-                    <div className="relative aspect-[4/3] bg-[#F5F3F0]">
+                    <div className="relative aspect-[4/3] bg-gradient-to-br from-[#FAF8F5] via-white to-[#F5F1EB]">
+                      {/* Subtle pattern */}
+                      <div
+                        className="absolute inset-0 opacity-[0.02]"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23C9A86C' fill-opacity='1'%3E%3Cpath d='M20 20h-4v-4h4v4zm0-20h-4v4h4V0zM0 20h4v-4H0v4z'/%3E%3C/g%3E%3C/svg%3E")`,
+                        }}
+                      />
+
                       {isValidImageUrl(product.imageUrl) ? (
-                        <Image
-                          src={product.imageUrl}
-                          alt={product.name}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          unoptimized={product.imageUrl.includes('benjaminmoore.com')}
-                        />
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          {/* Framed image */}
+                          <div className="relative bg-white rounded-lg p-3 shadow-md ring-1 ring-[#E8E2D9]/50 group-hover:shadow-lg transition-shadow">
+                            <Image
+                              src={product.imageUrl}
+                              alt={product.name}
+                              width={140}
+                              height={137}
+                              className="object-contain"
+                              style={{ imageRendering: 'crisp-edges' }}
+                              unoptimized={product.imageUrl.includes('benjaminmoore.com')}
+                            />
+                          </div>
+                        </div>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="text-center">
                             {/* Paint Can SVG Placeholder */}
                             <svg
                               viewBox="0 0 80 100"
-                              className="w-20 h-24 mx-auto mb-2"
+                              className="w-16 h-20 mx-auto mb-2 drop-shadow-md"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
                             >

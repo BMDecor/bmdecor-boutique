@@ -164,17 +164,42 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Product Image */}
           <div className="space-y-4">
-            <div className="relative aspect-square bg-white rounded-2xl border border-[#E8E2D9] overflow-hidden">
+            <div className="relative aspect-square rounded-2xl border border-[#E8E2D9] overflow-hidden bg-gradient-to-br from-[#FAF8F5] via-white to-[#F5F1EB]">
+              {/* Subtle pattern overlay */}
+              <div
+                className="absolute inset-0 opacity-[0.03]"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9A86C' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                }}
+              />
+
               {isValidImageUrl(product.imageUrl) ? (
-                <Image
-                  src={product.imageUrl}
-                  alt={product.name}
-                  fill
-                  className="object-contain p-8"
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  unoptimized={product.imageUrl.includes('benjaminmoore.com')}
-                />
+                <div className="absolute inset-0 flex items-center justify-center p-8">
+                  {/* Image container with shadow and frame */}
+                  <div className="relative w-48 h-48 flex items-center justify-center">
+                    {/* Soft shadow behind image */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#C9A86C]/5 to-[#2C2C2C]/10 rounded-xl blur-xl transform scale-90" />
+
+                    {/* Image wrapper */}
+                    <div className="relative bg-white rounded-lg p-4 shadow-lg ring-1 ring-[#E8E2D9]">
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        width={197}
+                        height={193}
+                        className="object-contain"
+                        style={{ imageRendering: 'crisp-edges' }}
+                        priority
+                        unoptimized={product.imageUrl.includes('benjaminmoore.com')}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Brand watermark */}
+                  <div className="absolute bottom-4 right-4 text-xs text-[#C9A86C]/40 font-medium tracking-wider">
+                    {product.brand === 'BM' ? 'BENJAMIN MOORE' : product.brand === 'FB' ? 'FARROW & BALL' : 'LITTLE GREENE'}
+                  </div>
+                </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
@@ -182,7 +207,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                     <div className="w-32 h-40 mx-auto mb-4 relative">
                       <svg
                         viewBox="0 0 80 100"
-                        className="w-full h-full"
+                        className="w-full h-full drop-shadow-lg"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
                       >
