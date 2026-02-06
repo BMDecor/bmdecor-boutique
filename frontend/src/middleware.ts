@@ -43,13 +43,19 @@ export function middleware(request: NextRequest) {
     const isExpired = payload ? (payload.exp as number) * 1000 < Date.now() : true;
     const groups = (!isExpired && payload?.['cognito:groups']) as string[] | undefined;
 
-    if (pathname.startsWith('/admin')) {
+    // Admin page guard (not API routes - those handle their own auth)
+    if (pathname.startsWith('/admin') && !pathname.startsWith('/api/')) {
       if (!groups || !groups.includes('Admin')) {
         const url = request.nextUrl.clone();
         url.pathname = '/';
         url.searchParams.set('authRequired', 'admin');
         return NextResponse.redirect(url);
       }
+    }
+
+    // API admin routes - let them through, they handle their own auth via requireAdmin()
+    if (pathname.startsWith('/api/admin')) {
+      return response;
     }
 
     if (pathname.startsWith('/my-studio')) {

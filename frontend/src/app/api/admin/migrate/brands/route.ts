@@ -9,7 +9,11 @@ import type { BrandId } from '@/types/store';
  * POST /api/admin/migrate/brands
  *
  * Scans all PRODUCT entities and adds brandId field based on color code heuristics.
- * This is a one-time migration script to normalize brand identification.
+ * Uses chunked processing to avoid serverless timeouts.
+ *
+ * Parameters:
+ * - dryRun: boolean - If true, only analyze without updating
+ * - batchLimit: number - Max items to update per request (default 500)
  *
  * Brand Detection Heuristics:
  * - Benjamin Moore: HC-, OC-, CSP-, AF-, CC-, PM-, BM-, or purely numeric (e.g., 2121-10)
@@ -26,6 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const dryRun = body.dryRun === true;
+    const batchLimit = Math.min(body.batchLimit || 500, 1000); // Max 1000 per request
 
     // Fetch all products
     const items = await paginatedScan({
@@ -40,6 +45,7 @@ export async function POST(request: NextRequest) {
       total: items.length,
       updated: 0,
       skipped: 0,
+      alreadyMigrated: 0,
       errors: 0,
       byBrand: {
         'benjamin-moore': 0,
@@ -50,7 +56,7 @@ export async function POST(request: NextRequest) {
       samples: [] as { code: string; name: string; detectedBrand: string; existingBrand: string }[],
     };
 
-    // Process items
+    // Process items - collect updates
     const updates: { PK: string; SK: string; brandId: BrandId }[] = [];
 
     for (const item of items) {
@@ -61,7 +67,7 @@ export async function POST(request: NextRequest) {
 
       // Skip if already has brandId
       if (existingBrandId && existingBrandId !== 'unknown') {
-        results.skipped++;
+        results.alreadyMigrated++;
         continue;
       }
 
@@ -86,61 +92,77 @@ export async function POST(request: NextRequest) {
           SK: item.SK as string,
           brandId: detectedBrandId as BrandId,
         });
+      } else {
+        results.skipped++;
       }
     }
 
     console.log(`[Migration] Detected brands:`, results.byBrand);
     console.log(`[Migration] Updates to apply: ${updates.length}`);
 
-    // Apply updates if not dry run
-    if (!dryRun && updates.length > 0) {
-      // Process in batches of 25 (DynamoDB limit)
+    // Apply updates if not dry run (limited by batchLimit)
+    const updatesToProcess = updates.slice(0, batchLimit);
+    const remainingUpdates = updates.length - batchLimit;
+
+    if (!dryRun && updatesToProcess.length > 0) {
+      // Use parallel batch writes for speed (25 items per batch, 10 concurrent batches)
       const BATCH_SIZE = 25;
-      let batchCount = 0;
+      const CONCURRENT_BATCHES = 10;
 
-      for (let i = 0; i < updates.length; i += BATCH_SIZE) {
-        const batch = updates.slice(i, i + BATCH_SIZE);
-        batchCount++;
+      const batches: { PK: string; SK: string; brandId: BrandId }[][] = [];
+      for (let i = 0; i < updatesToProcess.length; i += BATCH_SIZE) {
+        batches.push(updatesToProcess.slice(i, i + BATCH_SIZE));
+      }
 
-        // Use individual updates for better error handling
-        for (const update of batch) {
-          try {
-            await docClient.send(
-              new UpdateCommand({
-                TableName: TABLE_NAME,
-                Key: {
-                  PK: update.PK,
-                  SK: update.SK,
-                },
-                UpdateExpression: 'SET brandId = :brandId, updatedAt = :now',
-                ExpressionAttributeValues: {
-                  ':brandId': update.brandId,
-                  ':now': new Date().toISOString(),
-                },
-              })
-            );
-            results.updated++;
-          } catch (error) {
-            console.error(`[Migration] Failed to update ${update.PK}:`, error);
-            results.errors++;
-          }
-        }
+      // Process batches in groups of CONCURRENT_BATCHES
+      for (let i = 0; i < batches.length; i += CONCURRENT_BATCHES) {
+        const concurrentBatches = batches.slice(i, i + CONCURRENT_BATCHES);
 
-        // Log progress
-        if (batchCount % 10 === 0) {
-          console.log(`[Migration] Processed ${batchCount * BATCH_SIZE} updates...`);
-        }
+        await Promise.all(
+          concurrentBatches.map(async (batch) => {
+            for (const update of batch) {
+              try {
+                await docClient.send(
+                  new UpdateCommand({
+                    TableName: TABLE_NAME,
+                    Key: {
+                      PK: update.PK,
+                      SK: update.SK,
+                    },
+                    UpdateExpression: 'SET brandId = :brandId, updatedAt = :now',
+                    ExpressionAttributeValues: {
+                      ':brandId': update.brandId,
+                      ':now': new Date().toISOString(),
+                    },
+                  })
+                );
+                results.updated++;
+              } catch (error) {
+                console.error(`[Migration] Failed to update ${update.PK}:`, error);
+                results.errors++;
+              }
+            }
+          })
+        );
+
+        console.log(`[Migration] Processed ${Math.min((i + CONCURRENT_BATCHES) * BATCH_SIZE, updatesToProcess.length)} / ${updatesToProcess.length} updates...`);
       }
     } else if (dryRun) {
       results.updated = updates.length;
     }
 
+    const hasMore = !dryRun && remainingUpdates > 0;
+
     return NextResponse.json({
       success: true,
       dryRun,
+      hasMore,
+      remaining: hasMore ? remainingUpdates : 0,
       results,
       message: dryRun
         ? `Dry run complete. Would update ${updates.length} items.`
+        : hasMore
+        ? `Batch complete. Updated ${results.updated} items. ${remainingUpdates} remaining - run again to continue.`
         : `Migration complete. Updated ${results.updated} items.`,
     });
   } catch (error) {
