@@ -11,6 +11,33 @@ const nextConfig: NextConfig = {
         hostname: 'images.unsplash.com',
         pathname: '/**',
       },
+      // Benjamin Moore CDN domains
+      {
+        protocol: 'https',
+        hostname: '*.benjaminmoore.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'benjaminmoore.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.benjaminmoore.com',
+        pathname: '/**',
+      },
+      // BM API and media CDN
+      {
+        protocol: 'https',
+        hostname: 'api.benjaminmoore.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'media.benjaminmoore.com',
+        pathname: '/**',
+      },
     ],
   },
   async redirects() {

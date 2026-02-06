@@ -11,6 +11,14 @@ type PageProps = {
   params: Promise<{ category: string }>;
 };
 
+/**
+ * Check if an image URL is valid (external http/https URL)
+ */
+function isValidImageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
 // Map URL slugs to PaintCategory types
 const CATEGORY_MAP: Record<string, PaintCategory> = {
   'interior': 'Interior',
@@ -158,32 +166,36 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                   >
                     {/* Product Image */}
                     <div className="relative aspect-[4/3] bg-[#F5F3F0]">
-                      {product.imageUrl ? (
+                      {isValidImageUrl(product.imageUrl) ? (
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
                           fill
                           className="object-cover"
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          unoptimized={product.imageUrl.includes('benjaminmoore.com')}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="text-center">
-                            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-[#C9A86C]/10 flex items-center justify-center">
-                              <svg
-                                className="w-8 h-8 text-[#C9A86C]"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={1.5}
-                                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                                />
-                              </svg>
-                            </div>
+                            {/* Paint Can SVG Placeholder */}
+                            <svg
+                              viewBox="0 0 80 100"
+                              className="w-20 h-24 mx-auto mb-2"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <rect x="10" y="25" width="60" height="70" rx="4" fill="#E8E2D9" stroke="#C9A86C" strokeWidth="2" />
+                              <rect x="5" y="15" width="70" height="15" rx="3" fill="#F5F3F0" stroke="#C9A86C" strokeWidth="2" />
+                              <path d="M25 15 Q40 0 55 15" stroke="#C9A86C" strokeWidth="3" fill="none" strokeLinecap="round" />
+                              <rect x="18" y="40" width="44" height="40" rx="2" fill="white" stroke="#E8E2D9" strokeWidth="1" />
+                              <text x="40" y="58" textAnchor="middle" fontSize="8" fill="#C9A86C" fontWeight="bold">
+                                {product.brand}
+                              </text>
+                              <text x="40" y="72" textAnchor="middle" fontSize="6" fill="#2C2C2C" opacity="0.5">
+                                PAINT
+                              </text>
+                            </svg>
                             <span className="text-xs text-[#2C2C2C]/30">
                               {product.brand === 'BM' ? 'Benjamin Moore' : product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
                             </span>

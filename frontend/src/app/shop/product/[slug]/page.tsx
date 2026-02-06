@@ -12,6 +12,16 @@ type PageProps = {
 };
 
 /**
+ * Check if an image URL is valid (external http/https URL)
+ * Returns false for broken local paths like '/images/products/...'
+ */
+function isValidImageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  // Only accept external URLs that start with http/https
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+/**
  * Fetch a master product (paint can) from DynamoDB by slug/id
  */
 async function getProductFromDB(slug: string): Promise<Product | null> {
@@ -100,7 +110,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: product.name,
       description: product.description,
       type: 'website',
-      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
+      images: isValidImageUrl(product.imageUrl) ? [{ url: product.imageUrl }] : undefined,
     },
   };
 }
@@ -155,7 +165,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           {/* Product Image */}
           <div className="space-y-4">
             <div className="relative aspect-square bg-white rounded-2xl border border-[#E8E2D9] overflow-hidden">
-              {product.imageUrl ? (
+              {isValidImageUrl(product.imageUrl) ? (
                 <Image
                   src={product.imageUrl}
                   alt={product.name}
@@ -163,28 +173,42 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   className="object-contain p-8"
                   priority
                   sizes="(max-width: 1024px) 100vw, 50vw"
+                  unoptimized={product.imageUrl.includes('benjaminmoore.com')}
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[#C9A86C]/10 flex items-center justify-center">
+                    {/* Paint Can SVG Placeholder */}
+                    <div className="w-32 h-40 mx-auto mb-4 relative">
                       <svg
-                        className="w-12 h-12 text-[#C9A86C]"
+                        viewBox="0 0 80 100"
+                        className="w-full h-full"
                         fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                        />
+                        {/* Can body */}
+                        <rect x="10" y="25" width="60" height="70" rx="4" fill="#E8E2D9" stroke="#C9A86C" strokeWidth="2" />
+                        {/* Can lid */}
+                        <rect x="5" y="15" width="70" height="15" rx="3" fill="#F5F3F0" stroke="#C9A86C" strokeWidth="2" />
+                        {/* Handle */}
+                        <path d="M25 15 Q40 0 55 15" stroke="#C9A86C" strokeWidth="3" fill="none" strokeLinecap="round" />
+                        {/* Label area */}
+                        <rect x="18" y="40" width="44" height="40" rx="2" fill="white" stroke="#E8E2D9" strokeWidth="1" />
+                        {/* Brand indicator */}
+                        <text x="40" y="58" textAnchor="middle" fontSize="8" fill="#C9A86C" fontWeight="bold">
+                          {product.brand}
+                        </text>
+                        <text x="40" y="72" textAnchor="middle" fontSize="6" fill="#2C2C2C" opacity="0.5">
+                          PAINT
+                        </text>
                       </svg>
                     </div>
-                    <span className="text-sm text-[#2C2C2C]/30">
+                    <span className="text-sm text-[#2C2C2C]/40 font-medium">
                       {product.brand === 'BM' ? 'Benjamin Moore' : product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
                     </span>
+                    <p className="text-xs text-[#2C2C2C]/30 mt-1">
+                      Product image coming soon
+                    </p>
                   </div>
                 </div>
               )}

@@ -149,8 +149,7 @@ export interface CalculatorResult {
 // ─────────────────────────────────────────────────────────
 
 const AWS_CONFIG = {
-  profile: 'bmdecor',
-  region: 'eu-west-1',
+  region: process.env.BMDECOR_AWS_REGION || 'eu-west-1',
   secretName: 'BmDecor/BenjaminMoore',
 };
 
@@ -161,13 +160,33 @@ interface BMSecrets {
 
 let cachedSecrets: BMSecrets | null = null;
 
+/**
+ * Get BM API secrets from AWS Secrets Manager.
+ * Uses environment variables for credentials (works on Vercel).
+ * Falls back to AWS profile for local development.
+ */
 async function getSecrets(): Promise<BMSecrets> {
   if (cachedSecrets) return cachedSecrets;
 
-  const client = new SecretsManagerClient({
+  // Build credentials based on environment
+  const hasEnvCreds = process.env.BMDECOR_AWS_ACCESS_KEY_ID && process.env.BMDECOR_AWS_SECRET_ACCESS_KEY;
+
+  const clientConfig: ConstructorParameters<typeof SecretsManagerClient>[0] = {
     region: AWS_CONFIG.region,
-    credentials: fromIni({ profile: AWS_CONFIG.profile }),
-  });
+  };
+
+  if (hasEnvCreds) {
+    // Vercel/production: use environment variables
+    clientConfig.credentials = {
+      accessKeyId: process.env.BMDECOR_AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.BMDECOR_AWS_SECRET_ACCESS_KEY!,
+    };
+  } else {
+    // Local development: use AWS profile
+    clientConfig.credentials = fromIni({ profile: 'bmdecor' });
+  }
+
+  const client = new SecretsManagerClient(clientConfig);
 
   const response = await client.send(
     new GetSecretValueCommand({ SecretId: AWS_CONFIG.secretName })
