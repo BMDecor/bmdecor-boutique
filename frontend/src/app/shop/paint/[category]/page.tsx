@@ -2,8 +2,10 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PAINT_CATEGORIES, BM_PRODUCT_LINES, type PaintCategory } from '@/types/store';
-import { getProductsByCategory, calculatePrice } from '@/lib/inventory';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { PAINT_CATEGORIES, BM_PRODUCT_LINES, type PaintCategory, type Product } from '@/types/store';
+import { calculatePrice } from '@/lib/inventory';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 
 type PageProps = {
   params: Promise<{ category: string }>;
@@ -22,6 +24,52 @@ function getCategoryInfo(slug: string) {
   const categoryId = CATEGORY_MAP[slug];
   if (!categoryId) return null;
   return PAINT_CATEGORIES.find((c) => c.id === categoryId);
+}
+
+/**
+ * Fetch master products (paint cans) from DynamoDB by category
+ */
+async function getProductsFromDB(category: string): Promise<Product[]> {
+  const categoryName = CATEGORY_MAP[category];
+  if (!categoryName) return [];
+
+  try {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pkPrefix) AND entityType = :entityType AND category = :category',
+        ExpressionAttributeValues: {
+          ':pkPrefix': 'PRODUCT#CAN#',
+          ':entityType': 'PRODUCT',
+          ':category': categoryName,
+        },
+      })
+    );
+
+    return (result.Items || []).map((item) => ({
+      id: item.id as string,
+      name: item.name as string,
+      brand: item.brand as string,
+      brandId: item.brandId as Product['brandId'],
+      productLine: item.productLine as string,
+      department: item.department as string,
+      category: item.category as string,
+      type: (item.productType as Product['type']) || 'paint',
+      tags: (item.tags as string[]) || [],
+      basePrice: item.basePrice as number,
+      availableFinishes: (item.availableFinishes as Product['availableFinishes']) || [],
+      availableSizes: (item.availableSizes as Product['availableSizes']) || [],
+      isTintable: (item.isTintable as boolean) ?? true,
+      description: item.description as string,
+      imageUrl: item.imageUrl as string,
+      coverageRateM2PerL: item.coverageRateM2PerL as number,
+      inStock: (item.inStock as boolean) ?? true,
+      updatedAt: item.updatedAt as string,
+    }));
+  } catch (error) {
+    console.error('Error fetching products from DynamoDB:', error);
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -53,8 +101,8 @@ export default async function PaintCategoryPage({ params }: PageProps) {
     notFound();
   }
 
-  // Get products for this category
-  const products = getProductsByCategory(category);
+  // Get products for this category from DynamoDB
+  const products = await getProductsFromDB(category);
 
   // Get product lines for this category (for reference info)
   const productLines = BM_PRODUCT_LINES.filter((pl) => pl.category === categoryInfo.id);
@@ -137,7 +185,7 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                               </svg>
                             </div>
                             <span className="text-xs text-[#2C2C2C]/30">
-                              Benjamin Moore
+                              {product.brand === 'BM' ? 'Benjamin Moore' : product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
                             </span>
                           </div>
                         </div>
@@ -165,7 +213,7 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                           </span>
                         )}
                         <span className="text-xs text-[#2C2C2C]/40">
-                          {product.brand === 'BM' ? 'Benjamin Moore' : product.brand}
+                          {product.brand === 'BM' ? 'Benjamin Moore' : product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
                         </span>
                       </div>
 

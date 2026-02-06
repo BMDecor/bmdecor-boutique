@@ -2,27 +2,97 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getProductBySlug, getAllProducts } from '@/lib/inventory';
-import { PAINT_CATEGORIES, BM_PRODUCT_LINES, FINISH_SHEENS, CONTAINER_SIZES } from '@/types/store';
+import { ScanCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
+import { PAINT_CATEGORIES, BM_PRODUCT_LINES, FINISH_SHEENS, CONTAINER_SIZES, type Product } from '@/types/store';
 import ProductConfigurator from './ProductConfigurator';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
+/**
+ * Fetch a master product (paint can) from DynamoDB by slug/id
+ */
+async function getProductFromDB(slug: string): Promise<Product | null> {
+  try {
+    const result = await docClient.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `PRODUCT#CAN#${slug}`,
+          SK: 'METADATA',
+        },
+      })
+    );
+
+    if (!result.Item) return null;
+
+    const item = result.Item;
+    return {
+      id: item.id as string,
+      name: item.name as string,
+      brand: item.brand as string,
+      brandId: item.brandId as Product['brandId'],
+      productLine: item.productLine as string,
+      department: item.department as string,
+      category: item.category as string,
+      type: (item.productType as Product['type']) || 'paint',
+      tags: (item.tags as string[]) || [],
+      basePrice: item.basePrice as number,
+      availableFinishes: (item.availableFinishes as Product['availableFinishes']) || [],
+      availableSizes: (item.availableSizes as Product['availableSizes']) || [],
+      isTintable: (item.isTintable as boolean) ?? true,
+      description: item.description as string,
+      imageUrl: item.imageUrl as string,
+      coverageRateM2PerL: item.coverageRateM2PerL as number,
+      inStock: (item.inStock as boolean) ?? true,
+      updatedAt: item.updatedAt as string,
+    };
+  } catch (error) {
+    console.error('Error fetching product from DynamoDB:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch all master product slugs for static generation
+ */
+async function getAllProductSlugs(): Promise<string[]> {
+  try {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pkPrefix) AND entityType = :entityType',
+        ExpressionAttributeValues: {
+          ':pkPrefix': 'PRODUCT#CAN#',
+          ':entityType': 'PRODUCT',
+        },
+        ProjectionExpression: 'id',
+      })
+    );
+
+    return (result.Items || []).map((item) => item.id as string);
+  } catch (error) {
+    console.error('Error fetching product slugs:', error);
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductFromDB(slug);
 
   if (!product) {
     return { title: 'Product Not Found' };
   }
 
-  const productLine = BM_PRODUCT_LINES.find((pl) => pl.id === product.productLine);
+  const brandName = product.brand === 'BM' ? 'Benjamin Moore' :
+                    product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene';
 
   return {
     title: product.name,
-    description: product.description || `${product.name} from Benjamin Moore`,
+    description: product.description || `${product.name} from ${brandName}`,
     alternates: {
       canonical: `/shop/product/${slug}`,
     },
@@ -36,13 +106,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export async function generateStaticParams() {
-  const products = getAllProducts();
-  return products.map((product) => ({ slug: product.id }));
+  const slugs = await getAllProductSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductFromDB(slug);
 
   if (!product) {
     notFound();
@@ -113,7 +183,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                       </svg>
                     </div>
                     <span className="text-sm text-[#2C2C2C]/30">
-                      Benjamin Moore
+                      {product.brand === 'BM' ? 'Benjamin Moore' : product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
                     </span>
                   </div>
                 </div>
@@ -161,7 +231,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
             {/* Brand & Product Line */}
             <div className="flex items-center gap-3">
               <span className="text-sm text-[#2C2C2C]/50">
-                {product.brand === 'BM' ? 'Benjamin Moore' : product.brand}
+                {product.brand === 'BM' ? 'Benjamin Moore' : product.brand === 'FB' ? 'Farrow & Ball' : 'Little Greene'}
               </span>
               {productLine && (
                 <>
