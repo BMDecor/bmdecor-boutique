@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Check } from 'lucide-react';
-import type { BrandId, ColorFamily } from '@/types/store';
+import type { BrandId } from '@/types/store';
 
 // Color item from API or static data
 export interface ColorItem {
@@ -31,15 +31,114 @@ const BRAND_NAMES: Record<BrandId, string> = {
 
 // Color family tabs with representative colors
 const COLOR_TABS = [
-  { id: 'popular', label: 'Popular', hex: '#C9A86C' },
+  { id: 'all', label: 'All Colors', hex: '#C9A86C' },
   { id: 'white', label: 'Whites', hex: '#F9F7F3' },
   { id: 'grey', label: 'Greys', hex: '#9A9A8E' },
-  { id: 'blue', label: 'Blues', hex: '#2C4251' },
-  { id: 'green', label: 'Greens', hex: '#4A5240' },
+  { id: 'blue', label: 'Blues', hex: '#4A90B8' },
+  { id: 'green', label: 'Greens', hex: '#5A8C6A' },
+  { id: 'yellow', label: 'Yellows', hex: '#E8C870' },
+  { id: 'orange', label: 'Oranges', hex: '#D48C4C' },
+  { id: 'red', label: 'Reds', hex: '#C45C5C' },
+  { id: 'pink', label: 'Pinks', hex: '#E8A0B0' },
+  { id: 'purple', label: 'Purples', hex: '#8870A8' },
   { id: 'neutral', label: 'Neutrals', hex: '#B5A99A' },
 ] as const;
 
 type TabId = typeof COLOR_TABS[number]['id'];
+
+/**
+ * Convert hex to HSL values for proper color family detection
+ */
+function hexToHSL(hex: string): { h: number; s: number; l: number } {
+  // Remove # if present
+  hex = hex.replace(/^#/, '');
+
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
+    }
+  }
+
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+/**
+ * Determine color family based on HSL values
+ * Every color MUST be classified into exactly one family
+ *
+ * Key insight: "Neutrals" are specifically warm, desaturated colors (beiges, taupes, tans, browns)
+ * Muted cool colors (sage green, dusty blue) should stay in their hue family
+ */
+function getColorFamily(hex: string): TabId {
+  const { h, s, l } = hexToHSL(hex);
+
+  // Very light colors → white
+  if (l > 94) return 'white';
+
+  // Very dark colors → grey
+  if (l < 12) return 'grey';
+
+  // Very low saturation (achromatic) → white or grey
+  if (s < 6) return l > 80 ? 'white' : 'grey';
+
+  // Low saturation colors - only warm hues become neutrals
+  // Cool hues (greens, blues, purples) stay in their hue family even when muted
+  if (s < 20) {
+    if (l > 88) return 'white';
+    if (l < 20) return 'grey';
+
+    // Only warm hues (reds, oranges, yellows: 0-70°) become neutrals when desaturated
+    // These are the true beiges, taupes, tans, khakis, browns
+    if (h < 70 || h >= 340) {
+      return 'neutral';
+    }
+    // Cool hues with low saturation: classify by hue (muted green is still green)
+    if (h >= 70 && h < 165) return 'green';
+    if (h >= 165 && h < 260) return 'blue';
+    if (h >= 260 && h < 300) return 'purple';
+    if (h >= 300 && h < 340) return 'pink';
+  }
+
+  // Light pastel handling
+  if (l > 75 && s < 60) {
+    if (h < 25 || h >= 340) return 'pink';
+    // Light warm colors in cream/ivory range
+    if (h >= 25 && h < 50 && s < 30) return 'neutral';
+  }
+
+  // Saturated colors - classify by hue
+  // Hue wheel: 0=red, 60=yellow, 120=green, 180=cyan, 240=blue, 300=magenta, 360=red
+  if (h < 12 || h >= 345) return 'red';
+  if (h >= 12 && h < 38) return 'orange';
+  if (h >= 38 && h < 70) return l > 90 && s < 35 ? 'white' : 'yellow';
+  if (h >= 70 && h < 165) return 'green';
+  if (h >= 165 && h < 260) return 'blue';
+  if (h >= 260 && h < 300) return 'purple';
+  if (h >= 300 && h < 345) return 'pink';
+
+  return 'neutral';
+}
 
 /**
  * ColorPickerModal - Visual Fan Deck for selecting colors
@@ -53,13 +152,21 @@ export default function ColorPickerModal({
   selectedColorCode,
 }: ColorPickerModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabId>('popular');
+  const [activeTab, setActiveTab] = useState<TabId>('all');
   const [colors, setColors] = useState<ColorItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
-  const ITEMS_PER_PAGE = 48;
+  // Reference to the scroll container for infinite scroll
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+
+  // Track current fetch to handle race conditions
+  const fetchIdRef = useRef(0);
+
+  // Load a good batch of colors
+  const ITEMS_PER_PAGE = 200;
 
   // Map brand to short code for API
   const brandCode = useMemo(() => {
@@ -71,24 +178,50 @@ export default function ColorPickerModal({
     return map[brandId];
   }, [brandId]);
 
-  // Fetch colors from API
-  const fetchColors = useCallback(async (reset = false) => {
-    if (loading) return;
+  // Fetch colors from API - takes explicit parameters to avoid stale closures
+  const fetchColors = useCallback(async (options: {
+    reset?: boolean;
+    family: TabId;
+    cursor?: string | null;
+    search?: string;
+  }) => {
+    const { reset = false, family, cursor, search } = options;
+
+    // For non-reset fetches, check if we're already loading
+    if (!reset && loading) return;
+
+    // Generate a unique ID for this fetch to handle race conditions
+    const currentFetchId = ++fetchIdRef.current;
+
     setLoading(true);
 
     try {
       const params = new URLSearchParams({
         brand: brandCode,
         limit: String(ITEMS_PER_PAGE),
-        cursor: reset ? '0' : String(page * ITEMS_PER_PAGE),
       });
 
-      if (searchQuery) {
-        params.set('search', searchQuery);
+      // Use provided cursor or start from beginning
+      if (!reset && cursor) {
+        params.set('cursor', cursor);
+      }
+
+      if (search) {
+        params.set('search', search);
+      }
+
+      // Pass color family to API for server-side filtering (except for 'all')
+      if (family !== 'all') {
+        params.set('colorFamily', family);
       }
 
       const response = await fetch(`/api/colors?${params.toString()}`);
       const data = await response.json();
+
+      // Check if this fetch is still the most recent one
+      if (currentFetchId !== fetchIdRef.current) {
+        return; // A newer fetch was started, ignore this result
+      }
 
       const newColors: ColorItem[] = (data.items || []).map((item: Record<string, unknown>) => ({
         id: item.id as string,
@@ -100,73 +233,58 @@ export default function ColorPickerModal({
 
       if (reset) {
         setColors(newColors);
-        setPage(1);
       } else {
         setColors((prev) => [...prev, ...newColors]);
-        setPage((prev) => prev + 1);
       }
 
-      setHasMore(newColors.length === ITEMS_PER_PAGE);
+      // Use nextCursor from API to determine if there are more colors
+      setNextCursor(data.nextCursor);
+      setHasMore(data.nextCursor !== null);
     } catch (error) {
       console.error('Error fetching colors:', error);
     } finally {
-      setLoading(false);
+      // Only update loading state if this is still the current fetch
+      if (currentFetchId === fetchIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [brandCode, searchQuery, page, loading]);
+  }, [brandCode, loading]);
 
   // Initial fetch when modal opens or brand changes
   useEffect(() => {
     if (isOpen) {
       setColors([]);
-      setPage(0);
+      setNextCursor(null);
       setHasMore(true);
-      fetchColors(true);
+      fetchColors({ reset: true, family: activeTab, search: searchQuery });
     }
   }, [isOpen, brandCode]);
+
+  // Refetch when tab changes
+  useEffect(() => {
+    if (!isOpen) return;
+    setColors([]);
+    setNextCursor(null);
+    setHasMore(true);
+    fetchColors({ reset: true, family: activeTab, search: searchQuery });
+  }, [activeTab]);
 
   // Search with debounce
   useEffect(() => {
     if (!isOpen) return;
 
     const timer = setTimeout(() => {
-      setPage(0);
-      fetchColors(true);
+      setColors([]);
+      setNextCursor(null);
+      setHasMore(true);
+      fetchColors({ reset: true, family: activeTab, search: searchQuery });
     }, 300);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Filter colors by tab (client-side filtering for demo)
-  const filteredColors = useMemo(() => {
-    if (activeTab === 'popular') {
-      // Return first 48 as "popular"
-      return colors.slice(0, 48);
-    }
-
-    // Simple heuristic filtering by hex value for color families
-    return colors.filter((color) => {
-      const hex = color.hex.toLowerCase();
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
-
-      switch (activeTab) {
-        case 'white':
-          return luminance > 220;
-        case 'grey':
-          return Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && luminance > 100 && luminance < 200;
-        case 'blue':
-          return b > r && b > g && b > 100;
-        case 'green':
-          return g > r && g > b * 0.8 && g > 80;
-        case 'neutral':
-          return Math.abs(r - g) < 40 && Math.abs(g - b) < 40 && luminance > 120 && luminance < 220;
-        default:
-          return true;
-      }
-    });
-  }, [colors, activeTab]);
+  // Colors are now filtered server-side, so just use loaded colors directly
+  const filteredColors = colors;
 
   // Handle color selection
   const handleSelect = (color: ColorItem) => {
@@ -174,12 +292,40 @@ export default function ColorPickerModal({
     onClose();
   };
 
-  // Load more colors
+  // Refs for current state values to access in IntersectionObserver callback
+  const stateRef = useRef({ activeTab, nextCursor, searchQuery, hasMore, loading });
+  stateRef.current = { activeTab, nextCursor, searchQuery, hasMore, loading };
+
+  // Load more colors (for manual button click if needed)
   const handleLoadMore = () => {
     if (!loading && hasMore) {
-      fetchColors(false);
+      fetchColors({ reset: false, family: activeTab, cursor: nextCursor, search: searchQuery });
     }
   };
+
+  // Infinite scroll - load more when reaching bottom
+  useEffect(() => {
+    if (!isOpen || !loadMoreTriggerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        const { activeTab: tab, nextCursor: cursor, searchQuery: search, hasMore: more, loading: isLoading } = stateRef.current;
+        if (entry.isIntersecting && more && !isLoading) {
+          fetchColors({ reset: false, family: tab, cursor, search });
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: '200px', // Load more before reaching the very bottom
+        threshold: 0,
+      }
+    );
+
+    observer.observe(loadMoreTriggerRef.current);
+
+    return () => observer.disconnect();
+  }, [isOpen, fetchColors]);
 
   // Close on escape
   useEffect(() => {
@@ -270,7 +416,7 @@ export default function ColorPickerModal({
             </div>
 
             {/* Color Grid */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6">
               {loading && colors.length === 0 ? (
                 <div className="flex items-center justify-center h-48">
                   <div className="animate-spin w-8 h-8 border-2 border-[#C9A86C] border-t-transparent rounded-full" />
@@ -319,16 +465,20 @@ export default function ColorPickerModal({
                     })}
                   </div>
 
-                  {/* Load More */}
-                  {hasMore && !searchQuery && (
-                    <div className="flex justify-center mt-6">
-                      <button
-                        onClick={handleLoadMore}
-                        disabled={loading}
-                        className="px-6 py-2 bg-[#FAF8F5] text-sm text-[#2C2C2C]/70 rounded-lg hover:bg-[#E8E2D9] transition-colors disabled:opacity-50"
-                      >
-                        {loading ? 'Loading...' : 'Load More Colors'}
-                      </button>
+                  {/* Infinite scroll trigger - invisible element at the bottom */}
+                  <div ref={loadMoreTriggerRef} className="h-4" />
+
+                  {/* Loading indicator for infinite scroll */}
+                  {loading && colors.length > 0 && (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin w-6 h-6 border-2 border-[#C9A86C] border-t-transparent rounded-full" />
+                    </div>
+                  )}
+
+                  {/* End of colors message */}
+                  {!hasMore && colors.length > 0 && (
+                    <div className="text-center py-4 text-sm text-[#2C2C2C]/40">
+                      All {colors.length.toLocaleString()} colors loaded
                     </div>
                   )}
                 </>
