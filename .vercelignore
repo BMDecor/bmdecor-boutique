@@ -1,0 +1,29 @@
+# Git internals
+.git/
+
+# Large data files
+ingestion/data/
+
+# Next.js caches (Vercel builds fresh)
+frontend/.next/dev/
+frontend/.next/cache/
+.next/
+
+# Node modules (Vercel installs fresh)
+node_modules/
+**/node_modules/
+
+# Test files
+*.test.ts
+*.test.tsx
+
+# Local env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# Scripts package lock
+scripts/package-lock.json
