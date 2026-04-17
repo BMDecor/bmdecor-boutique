@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # Next.js / frontend app — the main thing that moves
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      next-and-react:
+        patterns: ["next", "react", "react-dom", "@types/react*"]
+      tailwind-and-ui:
+        patterns: ["tailwind*", "@tailwindcss/*", "@shadcn/*", "framer-motion"]
+      types:
+        patterns: ["@types/*"]
+      dev:
+        dependency-type: "development"
+
+  # GitHub Actions themselves — picked up once workflows are added
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
