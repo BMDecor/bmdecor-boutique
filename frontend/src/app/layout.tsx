@@ -7,6 +7,8 @@ import Navbar from "@/components/layout/Navbar";
 import CookieConsent from "@/components/privacy/CookieConsent";
 import { Toaster } from "@/components/ui/sonner";
 import { BASE_URL } from "@/lib/utils/env";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -111,6 +113,8 @@ export default function RootLayout({
             <Toaster />
           </CartProvider>
         </AuthProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
