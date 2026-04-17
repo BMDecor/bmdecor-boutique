@@ -1,0 +1,86 @@
+name: CI + Deploy
+
+# Runs on every PR (preview deploy) and on every push to main (production deploy).
+# Vercel's Git Integration should be disconnected so only this pipeline deploys.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel in-flight PR runs when new commits arrive; never cancel main pipelines.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  # Populate Vercel deploy metadata from GitHub context, so the Vercel
+  # dashboard still shows commit SHAs / branch names / PR info after the
+  # Git Integration is disconnected.
+  VERCEL_GIT_PROVIDER: github
+  VERCEL_GIT_REPO_OWNER: ${{ github.repository_owner }}
+  VERCEL_GIT_REPO_SLUG: ${{ github.event.repository.name }}
+  VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+  VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
+  VERCEL_GIT_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+  VERCEL_GIT_COMMIT_AUTHOR_LOGIN: ${{ github.actor }}
+  VERCEL_GIT_COMMIT_AUTHOR_NAME: ${{ github.actor }}
+
+jobs:
+  pipeline:
+    name: Type-check, Lint, Build, Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Vercel pull (environment config)
+        run: vercel pull --yes --environment=${{ github.ref_name == 'main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Vercel build
+        run: vercel build ${{ github.ref_name == 'main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Vercel deploy (prebuilt)
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $URL"
+
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.url }}';
+            const body = `🚀 **Preview deploy ready**\n\n${url}\n\nBuilt from \`${context.sha.slice(0, 7)}\`. Auto-rebuilds on every push to this branch.`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
