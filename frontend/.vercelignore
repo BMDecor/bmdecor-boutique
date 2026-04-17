@@ -1,0 +1,21 @@
+# Local Next.js caches - not needed for deploy
+.next/dev/
+.next/cache/
+
+# Node modules (Vercel installs fresh)
+node_modules/
+
+# Test and dev files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__/
+
+# Development configs
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/

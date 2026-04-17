@@ -10,22 +10,46 @@ interface ProductConfiguratorProps {
   product: Product;
   availableFinishInfo: FinishSheenInfo[];
   availableSizeInfo: ContainerSizeInfo[];
+  // Optional: when provided, color state is controlled by parent
+  selectedColor?: ColorItem | null;
+  onColorChange?: (color: ColorItem | null) => void;
+  // Optional: when provided, size state is controlled by parent
+  selectedSize?: ContainerSize;
+  onSizeChange?: (size: ContainerSize) => void;
+  // Optional: when provided, quantity state is controlled by parent
+  quantity?: number;
+  onQuantityChange?: (quantity: number) => void;
 }
 
 export default function ProductConfigurator({
   product,
   availableFinishInfo,
   availableSizeInfo,
+  selectedColor: controlledColor,
+  onColorChange,
+  selectedSize: controlledSize,
+  onSizeChange,
+  quantity: controlledQuantity,
+  onQuantityChange,
 }: ProductConfiguratorProps) {
   // State for configuration
   const [selectedFinish, setSelectedFinish] = useState<FinishSheen>(
     product.availableFinishes[0]
   );
-  const [selectedSize, setSelectedSize] = useState<ContainerSize>(
-    product.availableSizes[0]
-  );
-  const [selectedColor, setSelectedColor] = useState<ColorItem | null>(null);
-  const [quantity, setQuantity] = useState(1);
+
+  // Use controlled state if provided, otherwise manage internally
+  const [internalSize, setInternalSize] = useState<ContainerSize>(product.availableSizes[0]);
+  const selectedSize = controlledSize !== undefined ? controlledSize : internalSize;
+  const setSelectedSize = onSizeChange || setInternalSize;
+
+  const [internalColor, setInternalColor] = useState<ColorItem | null>(null);
+  const selectedColor = controlledColor !== undefined ? controlledColor : internalColor;
+  const setSelectedColor = onColorChange || setInternalColor;
+
+  const [internalQuantity, setInternalQuantity] = useState(1);
+  const quantity = controlledQuantity !== undefined ? controlledQuantity : internalQuantity;
+  const setQuantity = onQuantityChange || setInternalQuantity;
+
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   // Calculate price based on selections
