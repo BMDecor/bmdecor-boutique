@@ -12,6 +12,7 @@ interface ProductDetailClientProps {
   productLine: ProductLine | undefined;
   availableFinishInfo: FinishSheenInfo[];
   availableSizeInfo: ContainerSizeInfo[];
+  initialColor?: ColorItem | null;
 }
 
 /**
@@ -27,9 +28,12 @@ export default function ProductDetailClient({
   productLine,
   availableFinishInfo,
   availableSizeInfo,
+  initialColor = null,
 }: ProductDetailClientProps) {
-  // Lift color state here so it can affect the image background
-  const [selectedColor, setSelectedColor] = useState<ColorItem | null>(null);
+  // Lift color state here so it can affect the image background.
+  // `initialColor` is set when the shopper arrived via /shop/product/[slug]?color=<code>
+  // (e.g. from the colour page) — pre-select to match that colour.
+  const [selectedColor, setSelectedColor] = useState<ColorItem | null>(initialColor);
 
   // Lift size and quantity state so calculator can influence configurator
   const [selectedSize, setSelectedSize] = useState<ContainerSize>(product.availableSizes[0]);
