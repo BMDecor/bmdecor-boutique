@@ -28,26 +28,42 @@ Amplify deploy.
 | Framework | Next.js 16 (App Router, SSR) | auto-detected |
 | Custom domain | `preview.bmdecor.es` | staging / demo URL |
 
-## Environment variables (mirror Vercel's production set)
+## Environment variables — mirror Vercel's production set
 
-Fetch current Vercel env values (requires `vercel` CLI logged in):
+The current Vercel `frontend` project has **12 env vars** in production. All must be set on Amplify too, plus 2 new ones for the pre-launch gate:
 
-```
-cd /home/jason/bmdecor-project/bmdecor-boutique/frontend
-vercel env pull .env.production.snapshot --environment=production
-```
+### Copy these from Vercel (same values)
 
-Then set each value on the Amplify app. At minimum:
+| Key | Scope |
+|---|---|
+| `ADMIN_API_KEY` | prod |
+| `BMDECOR_AWS_ACCESS_KEY_ID` | prod |
+| `BMDECOR_AWS_REGION` | prod |
+| `BMDECOR_AWS_SECRET_ACCESS_KEY` | prod |
+| `BMDECOR_DYNAMODB_TABLE` | prod |
+| `BMDECOR_S3_BUCKET` | prod |
+| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | prod |
+| `NEXT_PUBLIC_COGNITO_REGION` | prod |
+| `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | prod |
 
-- `PRELAUNCH_MODE=true` — activates the coming-soon gate on this deploy
-- `PRELAUNCH_BYPASS_TOKEN=<generate a 32-byte random string>` — the secret for the `?preview=<token>` client demo URL
-- `BMDECOR_AWS_REGION`, `BMDECOR_AWS_ACCESS_KEY_ID`, `BMDECOR_AWS_SECRET_ACCESS_KEY`, `BMDECOR_DYNAMODB_TABLE`, `BMDECOR_S3_BUCKET`
-- `NEXT_PUBLIC_COGNITO_USER_POOL_ID`, `NEXT_PUBLIC_COGNITO_CLIENT_ID`, `NEXT_PUBLIC_COGNITO_REGION`
-- `NEXT_PUBLIC_BASE_URL=https://preview.bmdecor.es` — scoped to this Amplify environment
-- `ADMIN_API_KEY`
-- Any Stripe / email / other env vars currently on Vercel
+### Different value on Amplify
 
-Any env var NOT in the above list and present on Vercel should be audited before omitting.
+| Key | Value |
+|---|---|
+| `NEXT_PUBLIC_BASE_URL` | `https://preview.bmdecor.es` |
+
+### New on Amplify (not on Vercel)
+
+| Key | Value |
+|---|---|
+| `PRELAUNCH_MODE` | `true` |
+| `PRELAUNCH_BYPASS_TOKEN` | 32+ random chars — `openssl rand -hex 32` |
+
+### How to get Vercel values
+
+From the Amplify console, copy each value from Vercel's UI → paste into Amplify. Values never go through this runbook or the terminal pipes.
+
+If you want a fully scripted path: `vercel env pull .env.production.snapshot --environment=production` writes them to a file locally; then `aws amplify update-app --app-id ... --environment-variables key=value,...` sets them. Delete the `.env.production.snapshot` when done. Ensure it's ignored in `.gitignore` (already is via `*.local` rule).
 
 ## Create the Amplify app
 
@@ -129,14 +145,27 @@ Full before/after workflow diff lands in a follow-up PR alongside the Amplify ap
 3. Set `PRELAUNCH_MODE=false` in Amplify env vars, redeploy.
 4. Retire the static coming-soon S3 bucket (keep for 30 days as rollback safety net, then delete).
 
+## Fallback if Amplify has Next.js 16 compatibility issues
+
+Next.js 16 is new; Amplify's Next.js runtime may lag on specific features (Cache Components, Server Actions edge cases, Turbopack output format). If the first build fails or runtime errors surface and can't be resolved in a reasonable window:
+
+**Alternate Monday plan — keep Vercel, get the branded URL anyway:**
+
+1. Leave the Next.js app on Vercel (current, working).
+2. In Vercel: Project → Settings → Domains → add `preview.bmdecor.es`.
+3. Vercel returns a CNAME target (something like `cname.vercel-dns.com`).
+4. In Route 53: create a CNAME record `preview.bmdecor.es` → that target.
+5. Vercel auto-provisions the SSL cert; ~5 min later `https://preview.bmdecor.es` serves the Vercel deployment.
+6. Apply the same PRELAUNCH_MODE=true + PRELAUNCH_BYPASS_TOKEN env vars on Vercel (scoped to production) so the gate works the same way.
+
+This gets the client demo onto the `bmdecor.es` domain for Monday without the full AWS migration. The migration work continues in the background, cutover post-Monday.
+
 ## Rollback
 
-If the Amplify deploy has a critical issue before Monday:
+If the Amplify deploy fails after going live:
 
-1. Leave Vercel alive (we keep it until cutover).
-2. Remove the DNS record for `preview.bmdecor.es` OR set `PRELAUNCH_MODE=true`
-   so even authorised visitors see coming-soon.
-3. Re-point the client to the Vercel preview URL for the demo.
+1. Remove / delete the CNAME record for `preview.bmdecor.es` in Route 53 (or point it at the Vercel target above).
+2. DNS propagates in ~5–30 min depending on TTL.
+3. Vercel production URL continues working throughout — zero dependency on Amplify for the public `bmdecor.es` apex.
 
-No DNS changes to the apex until step 1 of Launch-day — so the public
-`bmdecor.es` coming-soon stays untouched regardless.
+No DNS changes to the apex until step 1 of Launch-day — so the public `bmdecor.es` coming-soon stays untouched regardless.
