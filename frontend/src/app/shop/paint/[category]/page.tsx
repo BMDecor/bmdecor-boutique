@@ -164,8 +164,12 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                     key={product.id}
                     className="group bg-white rounded-xl border border-[#E8E2D9] overflow-hidden hover:shadow-lg transition-shadow"
                   >
-                    {/* Product Image */}
-                    <div className="relative aspect-[4/3] bg-gradient-to-br from-[#FAF8F5] via-white to-[#F5F1EB]">
+                    {/* Product Image — click-through to product detail page */}
+                    <Link
+                      href={`/shop/product/${product.id}`}
+                      aria-label={`View ${product.name}`}
+                      className="block relative aspect-square bg-gradient-to-br from-[#FAF8F5] via-white to-[#F5F1EB] cursor-pointer"
+                    >
                       {/* Subtle pattern */}
                       <div
                         className="absolute inset-0 opacity-[0.02]"
@@ -175,15 +179,15 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                       />
 
                       {isValidImageUrl(product.imageUrl) ? (
-                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <div className="absolute inset-0 flex items-center justify-center p-6">
                           {/* Framed image */}
-                          <div className="relative bg-white rounded-lg p-3 shadow-md ring-1 ring-[#E8E2D9]/50 group-hover:shadow-lg transition-shadow">
+                          <div className="relative bg-white rounded-lg p-4 shadow-md ring-1 ring-[#E8E2D9]/50 group-hover:shadow-xl group-hover:ring-[#C9A86C]/30 transition-all">
                             <Image
                               src={product.imageUrl}
                               alt={product.name}
-                              width={140}
-                              height={137}
-                              className="object-contain"
+                              width={240}
+                              height={240}
+                              className="object-contain transition-transform duration-300 group-hover:scale-[1.03]"
                               style={{ imageRendering: 'crisp-edges' }}
                               unoptimized={product.imageUrl.includes('benjaminmoore.com')}
                             />
@@ -191,11 +195,11 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                         </div>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="text-center">
+                          <div className="text-center transition-transform duration-300 group-hover:scale-[1.03]">
                             {/* Paint Can SVG Placeholder */}
                             <svg
                               viewBox="0 0 80 100"
-                              className="w-16 h-20 mx-auto mb-2 drop-shadow-md"
+                              className="w-28 h-36 mx-auto mb-3 drop-shadow-md"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
                             >
@@ -223,7 +227,7 @@ export default async function PaintCategoryPage({ params }: PageProps) {
                           In Stock
                         </span>
                       )}
-                    </div>
+                    </Link>
 
                     {/* Product Info */}
                     <div className="p-5">
