@@ -1,13 +1,15 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ScanCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { ScanCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
 import { PAINT_CATEGORIES, BM_PRODUCT_LINES, FINISH_SHEENS, CONTAINER_SIZES, type Product } from '@/types/store';
+import type { ColorItem } from '@/components/shop/ColorPickerModal';
 import ProductDetailClient from './ProductDetailClient';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ color?: string }>;
 };
 
 /**
@@ -58,6 +60,43 @@ async function getProductFromDB(slug: string): Promise<Product | null> {
     };
   } catch (error) {
     console.error('Error fetching product from DynamoDB:', error);
+    return null;
+  }
+}
+
+/**
+ * Look up a colour for a brand by its colour code.
+ * Used to pre-select a colour when a shopper navigates here from a colour page
+ * (e.g. /shop/product/bm-aura-interior?color=HC-1).
+ * Returns null if no match.
+ */
+async function getColorByCode(brand: string, code: string): Promise<ColorItem | null> {
+  try {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: 'GSI-Brand',
+        KeyConditionExpression: 'brand = :brand',
+        FilterExpression: 'entityType = :type AND colorCode = :code',
+        ExpressionAttributeValues: {
+          ':brand': brand,
+          ':type': 'PRODUCT',
+          ':code': code,
+        },
+        Limit: 1,
+      })
+    );
+    const item = result.Items?.[0];
+    if (!item) return null;
+    return {
+      id: String(item.id ?? item.colorCode),
+      name: String(item.name ?? ''),
+      code: String(item.colorCode ?? ''),
+      hex: String(item.hexCode ?? ''),
+      collection: item.collection ? String(item.collection) : undefined,
+    };
+  } catch (error) {
+    console.error('Error fetching colour by code:', error);
     return null;
   }
 }
@@ -117,8 +156,9 @@ export async function generateStaticParams() {
   return slugs.map((slug) => ({ slug }));
 }
 
-export default async function ProductDetailPage({ params }: PageProps) {
+export default async function ProductDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { color: colorParam } = await searchParams;
   const product = await getProductFromDB(slug);
 
   if (!product) {
@@ -138,6 +178,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const availableSizeInfo = CONTAINER_SIZES.filter((s) =>
     product.availableSizes.includes(s.id)
   );
+
+  // Pre-select colour if a ?color=<code> param came in from a colour page
+  const initialColor =
+    colorParam && product.isTintable
+      ? await getColorByCode(product.brand, colorParam)
+      : null;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
@@ -163,6 +209,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           productLine={productLine}
           availableFinishInfo={availableFinishInfo}
           availableSizeInfo={availableSizeInfo}
+          initialColor={initialColor}
         />
       </main>
 
