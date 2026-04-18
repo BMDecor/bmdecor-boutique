@@ -33,7 +33,7 @@ Why we'd skip the other three from the site map:
 
 ## Decision
 
-**Your answer:** _(write here)_
+**Your answer:** _Option A. But i need option to add new collections. Time to time BM can add new collections_
 
 ---
 
