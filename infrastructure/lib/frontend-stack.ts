@@ -150,8 +150,11 @@ export class FrontendStack extends cdk.Stack {
       architecture: lambda.Architecture.ARM_64,
     });
 
+    // AWS_IAM auth (not NONE) — CloudFront signs requests via Origin Access Control
+    // (OAC) below. This keeps the Lambda URL not publicly invokable and is the
+    // recommended best practice.
     const ssrUrl = ssrFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
+      authType: lambda.FunctionUrlAuthType.AWS_IAM,
       invokeMode: defaultOrigin.streaming
         ? lambda.InvokeMode.RESPONSE_STREAM
         : lambda.InvokeMode.BUFFERED,
@@ -178,7 +181,7 @@ export class FrontendStack extends cdk.Stack {
       });
       this.assetBucket.grantRead(imageFn);
       imageFunctionUrl = imageFn.addFunctionUrl({
-        authType: lambda.FunctionUrlAuthType.NONE,
+        authType: lambda.FunctionUrlAuthType.AWS_IAM,
       });
     }
 
@@ -199,12 +202,10 @@ export class FrontendStack extends cdk.Stack {
     // ─────────────────────────────────────────────────────
     // CloudFront distribution
     // ─────────────────────────────────────────────────────
-    const ssrHttpOrigin = new origins.HttpOrigin(
-      cdk.Fn.select(2, cdk.Fn.split('/', ssrUrl.url)),
-      {
-        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-      }
-    );
+    // Use FunctionUrlOrigin with OAC so CloudFront signs requests to the IAM-
+    // auth Lambda URL. This means the Lambda URL is not publicly invokable;
+    // only our CloudFront distribution can reach it.
+    const ssrHttpOrigin = origins.FunctionUrlOrigin.withOriginAccessControl(ssrUrl);
     const s3BucketOrigin = origins.S3BucketOrigin.withOriginAccessControl(
       this.assetBucket,
       {}
@@ -227,10 +228,7 @@ export class FrontendStack extends cdk.Stack {
 
     if (imageFunctionUrl) {
       additionalBehaviors['_next/image*'] = {
-        origin: new origins.HttpOrigin(
-          cdk.Fn.select(2, cdk.Fn.split('/', imageFunctionUrl.url)),
-          { protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY }
-        ),
+        origin: origins.FunctionUrlOrigin.withOriginAccessControl(imageFunctionUrl),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
