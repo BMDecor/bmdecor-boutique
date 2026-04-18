@@ -38,6 +38,16 @@ const nextConfig: NextConfig = {
         hostname: 'media.benjaminmoore.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'bmdecor-images.s3.eu-west-1.amazonaws.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.bmdecor.es',
+        pathname: '/**',
+      },
     ],
   },
   async redirects() {
