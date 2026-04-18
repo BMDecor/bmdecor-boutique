@@ -10,6 +10,14 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  # TEMPORARY: disabled while we migrate hosting to AWS (OpenNext + CDK at
+  # preview.bmdecor.es). Vercel Hobby's 5000-files/24h upload quota is
+  # exhausted, so every deploy fails loudly with a rate-limit error.
+  # Flip back to "true" only if we need to re-enable Vercel as a failsafe.
+  # Once the AWS deploy is verified and CI is swapped to trigger cdk deploy,
+  # the Vercel steps can be deleted entirely. Tracked in #44.
+  VERCEL_DEPLOY_ENABLED: "false"
+
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   VERCEL_GIT_PROVIDER: github
@@ -51,15 +59,19 @@ jobs:
       # strict checks. See tracking issue.
 
       - name: Install Vercel CLI
+        if: env.VERCEL_DEPLOY_ENABLED == 'true'
         run: npm install --global vercel@latest
 
       - name: Vercel pull (environment config)
+        if: env.VERCEL_DEPLOY_ENABLED == 'true'
         run: vercel pull --yes --environment=${{ github.ref_name == 'main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Vercel build
+        if: env.VERCEL_DEPLOY_ENABLED == 'true'
         run: vercel build ${{ github.ref_name == 'main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Vercel deploy (prebuilt)
+        if: env.VERCEL_DEPLOY_ENABLED == 'true'
         id: deploy
         run: |
           URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
@@ -67,7 +79,7 @@ jobs:
           echo "Deployed to: $URL"
 
       - name: Comment preview URL on PR
-        if: github.event_name == 'pull_request'
+        if: env.VERCEL_DEPLOY_ENABLED == 'true' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
