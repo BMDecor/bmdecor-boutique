@@ -1,6 +1,6 @@
 # BM Decoración (bmdecor.es) — Project Brief
 
-> **Last updated:** 2026-04-17
+> **Last updated:** 2026-04-18 (evening)
 > **Next client review:** Monday 2026-04-21
 
 Single source of truth for everyone (and every Claude session) working on this project. Read it top-to-bottom at the start of any session. When anything meaningful changes — a brand is confirmed, a ticket delivers, the AWS profile gate changes, the client approves a new layout — update this file and commit the change.
@@ -15,40 +15,40 @@ BM Decoración (bmdecor.es) is a premium digital boutique for paint and wall-dec
 
 ## 1. Delivery cadence — What matters this week
 
-**Monday 2026-04-21 is a client review.** The client (the site's owner, Jason's friend) expects meaningful progress on the wishes list he delivered via `Jason.zip` (see `docs/client-brief/` and tickets #11–#30 on GitHub).
+**Monday 2026-04-21 is a client review** — 3 days out. The session of 2026-04-17→2026-04-18 pivoted from a Vercel-demo plan into an active Vercel→AWS migration driven by Jason's "completely on AWS today, not Vercel any longer" directive. Jason's Linux laptop crashed multiple times during the week; work has continued on a Mac since 2026-04-18 evening.
 
-### State at the start of the week
-- `main` at commit `42e3c43` ("Improve product image display with elegant framing", 2026-02-06).
-- Vercel production deployment `dpl_4PmRhhwa832qgmT17x2jFXkRWp75` serves `frontend-five-beige-41.vercel.app`.
-- Every recent deploy carries `meta.gitDirty: "1"` — the bundle contains work that was uncommitted at deploy time. That work is preserved on branch `wip/feb-2026-session` (4 commits: `b8061ba`, `e42c5d3`, `9025e34`, `9e84cd1`).
-- Ten MCPs connected; five specialist Claude agents defined in PR #10 (unmerged).
+### State at the start of 2026-04-18 evening
+- `main` at commit `051befd` ("Add handover doc for session migration"). Feb→April work has landed: GitHub Pro setup + specialist agents (#10), Vercel/main reconciliation (#33), auto-colour-select (#42), Vercel Web Analytics + Speed Insights (#43), GitHub Actions CI pipeline (#35), AWS Amplify pre-launch gate + OpenNext CDK scaffolding (#46), CDK frontend-stack fixes (#49), preview-bypass docs (#53), Vercel CI step disabled (#52), Lambda URL AWS_IAM + OAC fix (#51).
+- **Hosting:** Vercel `frontend-five-beige-41.vercel.app` still serves production; `VERCEL_DEPLOY_ENABLED=false` in CI (Vercel Hobby 5000-files/24h quota exhausted). AWS migration is the chosen forward path, not a post-Monday item.
+- **AWS state:** `BmDecorBoutiqueStack` (backend, eu-west-1), `BmDecorFrontendCertStack` (us-east-1 ACM cert `arn:aws:acm:us-east-1:450284264313:certificate/1f34e416-15c8-42d1-a0f5-f6237579f478`), `BmDecorFrontendStack` (CloudFront `E2REYDYIHUVV7F` → SSR Lambda + OpenNext image optimizer + S3 assets) all `UPDATE_COMPLETE`. `preview.bmdecor.es` DNS still points at Vercel; apex `bmdecor.es` + `www.bmdecor.es` serve the old static "coming soon" S3 page from a separate legacy CloudFront (`E2LAD2EPTUNTFA`). Cutover is landing iteratively — see §9.
+- **Pre-launch gate:** code live in `frontend/src/middleware.ts`; token in Secrets Manager at `BmDecor/PreviewBypassToken` (ARN ends `-NKU5dH`). Keep `PRELAUNCH_MODE=true` until Jason flips it after client sign-off.
+- MCPs: the 10 from §11 plus Playwright are all installed on the Mac (`claude mcp list` confirms). Vercel MCP pending OAuth; Stripe MCP deferred until payment wiring (Jason 2026-04-18).
 
 ### Prioritised tickets for Monday (roughly in order)
 
 | # | Ticket | Why it's in scope for Monday |
 |---|--------|-------------------------------|
-| 1 | **#2** Reconcile dirty Vercel deploys into git | Everything else risks regressing approved state until this lands. |
-| 2 | **#4** Land ProductDetailClient + PaintCalculator WIP | Likely already in the approved bundle; must not be lost. |
-| 3 | **#14** Colour-page redesign (3-level selector, big preview, per-colour imagery) | High visual impact, explicit client ask. |
-| 4 | **#27** BM collection fixes (order, descriptions, scroll-on-click, dense layout) | Explicit client request; affects every BM browsing path. |
-| 5 | **#17** Bigger product images + clickable image click-through | Quick win, obvious UX improvement. |
-| 6 | **#18** Replace product imagery with client-provided assets | Visuals already staged at `assets/brands/`; mostly wiring. |
-| 7 | **#19** "Buy Sample" button on colour pages | Explicit client ask; ties into #21 (Merchant Center feed). |
-| 8 | **#15** Brand nav restructure (Colours + Products as two top-level sections) | Target at least a partial implementation. |
-| 9 | **#5, #6** Review remaining WIP threads (nav polish, config leftovers) | Clear the branch; keep or drop. |
+| 1 | **#44 / #51** Finish AWS cutover — redeploy `BmDecorFrontendStack` so CloudFront stops 403ing, flip `preview.bmdecor.es` DNS off Vercel, plan apex cutover | Jason's explicit directive; unblocks everything else. |
+| 2 | **#28** Fix BM colour collections — order, scroll-on-click, descriptions, dense layout | Explicit client request; affects every BM browsing path. Blocks on decision Q1. |
+| 3 | **#15** Colour-page redesign (3-level selector, big preview, per-colour imagery) | Epic; explicit client ask. Blocks on decision Q1. |
+| 4 | **#16** Brand nav restructure (Colours + Products as two top-level sections) | Epic; blocks on decision Q2. Land at least partial. |
+| 5 | **#57** Land client visibility docs + 7 decision questions (EN+RU) | Doc PR already open; sending the 7 questions asynchronously unblocks #28 / #16 / #30 / #27 / #29 / #20 / #22 before Monday. |
+| 6 | **#70** F&B product imagery from S3 — ready to merge | Closes #19 for F&B; DynamoDB already pointing at the new S3 URLs. |
+| 7 | **#55** Playwright E2E suite — 17 tests green on last run | Ship so future cutovers are guarded. |
+| 8 | **#72** AWS resource audit — delete the ~€60/mo of dead architectures | Blocks #47; Jason's delete/keep decisions on each listed resource. |
 
 ### Epic / not expected by Monday
 - **#11** Orac Décor brand house
-- **#12** Wallpaper catalog
-- **#13** Multi-language EN/ES
-- **#22** Admin-managed brands
+- **#12** Wallpaper catalog F&B + LG
+- **#14** Multi-language EN/ES
+- **#23** Admin-managed brands
 - **#24** Inspirations & Advices blog + brand news
-- **#9** Clean CI-style deploys
+- **#50** AWS hardening pass (IAM roles > keys, WAF, KMS, PITR, alarms) — immediately after Monday cutover
 
 These are multi-week efforts. Mention them in the client review as tracked, not as in-flight.
 
 ### Blocking decisions before building
-Listed in section 15. Resolve with the client before implementing — guessing costs rework.
+Listed in section 15 plus `docs/client-questions/*` (bilingual EN+RU). Send those 7 files to the client — each answer unblocks a feature. Don't guess; guessing costs rework.
 
 ---
 
@@ -321,51 +321,88 @@ Orac extras: `oracCategory` (Zócalo / Cornisa / Moldura / 3D / etc.), `dimensio
 
 ---
 
-## 9. Current state snapshot (as of 2026-04-17)
+## 9. Current state snapshot (as of 2026-04-18 evening)
 
 ### Branches
-| Branch                       | HEAD        | Notes                                              |
-|------------------------------|-------------|-----------------------------------------------------|
-| `main`                       | `42e3c43`   | Last approved commit. Client's reference point.     |
-| `wip/feb-2026-session`       | `9e84cd1`   | 4 commits ahead of main. Preservation, not for shipping. |
-| `chore/github-pro-setup`     | (see PR #10)| GitHub Pro templates + Dependabot + 5 agents.       |
+| Branch                                 | Notes                                              |
+|----------------------------------------|-----------------------------------------------------|
+| `main`                                 | At `051befd` (HANDOVER.md). Canonical.              |
+| `wip/feb-2026-session`                 | Historical preservation from Feb; do not delete, do not ship. |
+| `docs/aws-audit-2026-04-18`            | PR #72 — AWS resource audit (delete/keep decisions pending Jason). |
+| `docs/client-visibility-questions`     | PR #57 — 7 EN+RU decision questions + progress-board guide. |
+| `feat/19-product-imagery-from-s3`      | PR #70 — F&B product imagery from S3. |
+| `feat/aws-migration-opennext`          | Historical feat branch; most work landed via `docs/aws-amplify-setup.md` etc. Contained 54f621f etc. |
+| `feat/playwright-e2e-suite`            | PR #55 — Playwright E2E suite. |
+| `chore/reconcile-deploy-to-main`       | PR #33 merged; safe to delete. |
+| `chore/github-pro-setup`               | PR #10 merged; safe to delete. |
+| `docs/claude-md-project-brief`         | PR #32 merged; safe to delete. |
+| `feat/17-bigger-product-images`        | PR #34 merged; safe to delete. |
+| `feat/21-auto-select-colour`           | PR #42 merged; safe to delete. |
+| `feat/vercel-analytics-sdks`           | PR #43 merged; safe to delete. |
+| Dependabot branches (4)                | PRs #37/#39/#40/#48 — grouped + individual npm bumps. |
 
 ### Open PRs
-- **#10** `chore: GitHub Pro setup — issue/PR templates, Dependabot, specialized Claude agents` — review and merge; this is where the specialist agents + issue templates land.
-- **#1** `chore: Initialize project dependencies` — 2-month-stale v0.app PR; close as superseded per #7.
+- **#72** `docs(aws): resource audit — propose ~€60/mo savings by deleting dead architectures` — Jason needs to approve delete/keep per listed resource.
+- **#70** `feat(shop): wire Farrow & Ball product imagery from S3 (closes #19 for F&B)` — DynamoDB already migrated; frontend ready.
+- **#57** `docs: client visibility — progress board guide + 7 decision questions (EN+RU)` — bilingual; merge + send to client.
+- **#55** `feat(test): Playwright end-to-end test suite` — 17 tests green on last run.
+- **#48 / #40 / #39 / #37** dependabot bumps (dev group, tiptap-image, fuse.js, tailwind-and-ui) — review green, merge.
 
-### Open issues
-| #  | Title                                                                       | Priority |
-|----|------------------------------------------------------------------------------|----------|
-| 2  | Reconcile dirty Vercel deploys — make GitHub source of truth                 | high     |
-| 3  | WIP ingestion (F&B CSV + LG wallpaper) — review and land                     | med      |
-| 4  | Land WIP ProductDetailClient + PaintCalculator                              | high     |
-| 5  | Review WIP nav / search / colour picker polish                               | med      |
-| 6  | Land WIP config leftovers + color-families migration scaffold               | low      |
-| 7  | Triage stale PR #1                                                           | low      |
-| 8  | Authenticate Stripe MCP                                                      | low      |
-| 9  | Adopt clean CI-style deploys (stop `gitDirty=1`)                             | med      |
-| 11 | Add Orac Décor (epic)                                                        | med      |
-| 12 | Add wallpaper catalog F&B + LG (epic)                                        | high     |
-| 13 | Multi-language EN/ES (epic)                                                  | med      |
-| 14 | Colour-page redesign                                                         | high     |
-| 15 | Brand nav restructure — Colours + Products (epic)                            | high     |
-| 16 | Product category filter on brand product page                                | med      |
-| 17 | Bigger product images + clickable image click-through                        | med      |
-| 18 | Replace product imagery with client assets                                   | med      |
-| 19 | Buy Sample button on colour page                                             | med      |
-| 20 | Auto-select colour on product page when navigating from colour page          | med      |
-| 21 | Google Merchant Center export — per-colour sample feed                       | low      |
-| 22 | Admin-managed brands (epic)                                                  | low      |
-| 23 | Inspirations & Advices + per-brand news                                      | low      |
-| 24 | Standard footer pages (T&C / Privacy / Shipping / Returns / Cookie / Account) | med      |
-| 25 | Newsletter signup + store locator                                            | low      |
-| 26 | Investigate "2811 Curated Colors" counter inaccuracy                         | low      |
-| 27 | Fix BM collections — order, scroll-on-click, descriptions, dense layout      | high     |
-| 28 | Simplify PaintCalculator (m² default, expandable detailed)                   | low      |
-| 29 | (reserved)                                                                    | —        |
-| 30 | Investigate: Is Noel & Marquet a new brand?                                  | low      |
-| 31 | Upload brand assets to S3 (blocked on bmdecor SSO)                           | low      |
+### Open issues (selection — the public board at `BMDecores/projects/1` is canonical)
+
+**Priority: high**
+| #  | Title                                                                       |
+|----|------------------------------------------------------------------------------|
+| 50 | AWS hardening — best practices pass after Monday cutover                     |
+| 28 | Fix BM colour collections — order, scroll-on-click, descriptions, dense layout |
+| 16 | Restructure brand nav — Colours + Products (epic)                            |
+| 15 | Colour page redesign — 3-level selector, big preview, per-colour imagery (epic) |
+| 12 | Wallpaper catalog F&B + LG (epic)                                            |
+
+**Priority: med**
+| #  | Title                                                                       |
+|----|------------------------------------------------------------------------------|
+| 68 | Wire BM `wetSampleSKU` / `drySampleSKU` into Buy Sample button               |
+| 66 | Browse live BM palettes (GetPaletteByCode) — dynamic, no hard-coded collections |
+| 63 | Pre-filter BM product selector to `ProductTypesAvailable`                    |
+| 60 | Colour family browser + filter                                               |
+| 59 | "Goes Great With" harmony rail on BM colour pages                            |
+| 58 | Surface BM Light Reflectance Value (LRV) on colour pages                     |
+| 25 | Standard footer pages (T&C / Privacy / Shipping / Cookie / Account / Order tracking) |
+| 14 | Multi-language EN/ES (epic)                                                  |
+| 3  | Review and land WIP ingestion (F&B CSV + LG wallpaper parser)                |
+
+**Priority: low**
+| #  | Title                                                                       |
+|----|------------------------------------------------------------------------------|
+| 71 | Wire LG product imagery once LG scraper delivers assets                      |
+| 69 | BM `eStoreAvailable` filter — only show buyable colours by default           |
+| 67 | Weekly BM API refresh job                                                    |
+| 65 | Use BM 2× / 3× product images for retina displays                            |
+| 64 | BM product technical datasheet (TDS) downloads                               |
+| 62 | BM marketing description copy on colour pages                                |
+| 61 | Exterior-available badge on BM colour pages                                  |
+| 41 | Fix ~70 accumulated TypeScript errors and re-enable strict `tsc --noEmit` in CI |
+| 30 | Investigate: Is Noel & Marquet a new brand? (`needs-clarification`)          |
+| 29 | Simplify PaintCalculator (m² default, expandable detailed)                   |
+| 27 | Investigate "2811 Curated Colors" counter inaccuracy                         |
+| 26 | Newsletter signup + Store locator page                                       |
+| 24 | Inspirations & Advices articles + per-brand news                             |
+| 23 | Admin-managed brands (epic)                                                  |
+| 22 | Google Merchant Center export — per-colour sample feed                       |
+| 20 | Buy Sample button on the colour page                                         |
+| 19 | Replace product imagery with client assets — partially closing via #70 (F&B) |
+| 13 | Add Tools category (rollers, brushes, buckets, accessories)                  |
+| 11 | Add Orac Décor as a 4th brand house (epic, `needs-clarification`)            |
+| 8  | Authenticate Stripe MCP — deferred until payment wiring                      |
+| 7  | Triage stale PR #1                                                           |
+
+**Tracker / demo-critical**
+| #  | Title                                                                       |
+|----|------------------------------------------------------------------------------|
+| 44 | Epic: Vercel → AWS migration                                                 |
+| 45 | Point bmdecor.es at current deployment (Monday demo win)                     |
+| 47 | Audit and delete unused AWS resources after the migration                    |
 
 ### Labels (issue taxonomy)
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:investigation`
