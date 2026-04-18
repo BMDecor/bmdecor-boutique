@@ -14,6 +14,9 @@ import { docClient, TABLE_NAME } from '@/lib/aws/dynamo-client';
  *   collection — filter by collection name (partial match)
  *   sortBy     — sort field: 'name' (default), 'code', 'price'
  *   sortOrder  — 'asc' (default) or 'desc'
+ *   includeUnavailable — 'true' to include colours where eStoreAvailable=false
+ *                        (BM flag meaning the colour can't be ordered online).
+ *                        Default: false. Only applies to BM.
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -25,6 +28,7 @@ export async function GET(request: NextRequest) {
   const collection = searchParams.get('collection');
   const sortBy = searchParams.get('sortBy') || 'code';
   const sortOrder = searchParams.get('sortOrder') || 'asc';
+  const includeUnavailable = searchParams.get('includeUnavailable') === 'true';
 
   // Clamp limit between 1 and 100
   const limit = Math.min(Math.max(limitParam, 1), 100);
@@ -63,8 +67,11 @@ export async function GET(request: NextRequest) {
           })
         : filtered;
 
+      // Apply eStoreAvailable filter (BM only — only buyable colours by default)
+      const availabilityFiltered = applyAvailabilityFilter(collectionFiltered, includeUnavailable);
+
       // Sort results
-      const sorted = sortItems(collectionFiltered, sortBy, sortOrder);
+      const sorted = sortItems(availabilityFiltered, sortBy, sortOrder);
 
       // Apply cursor-based pagination on filtered results
       const cursorIndex = cursor ? parseInt(cursor, 10) || 0 : 0;
@@ -92,6 +99,9 @@ export async function GET(request: NextRequest) {
           return itemCol.includes(collection);
         });
       }
+
+      // Apply eStoreAvailable filter (BM only — only buyable colours by default)
+      filtered = applyAvailabilityFilter(filtered, includeUnavailable);
 
       // Sort results globally
       const sorted = sortItems(filtered, sortBy, sortOrder);
@@ -164,6 +174,20 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching colors:', error);
     return NextResponse.json({ items: [], nextCursor: null, total: 0 }, { status: 200 });
   }
+}
+
+// Helper: Drop BM colours where eStoreAvailable is explicitly false.
+// Non-BM brands and records missing the flag are always kept.
+function applyAvailabilityFilter(
+  items: Record<string, unknown>[],
+  includeUnavailable: boolean
+): Record<string, unknown>[] {
+  if (includeUnavailable) return items;
+  return items.filter((item) => {
+    if (item.brand !== 'BM') return true;
+    if (item.eStoreAvailable === undefined) return true;
+    return item.eStoreAvailable === true;
+  });
 }
 
 // Helper: Fetch all items for a brand (for search)
@@ -309,5 +333,8 @@ function shapeItems(items: Record<string, unknown>[], productType: string) {
     collection: item.collection,
     description: item.description,
     inStock: item.inStock,
+    exteriorAvailability: item.exteriorAvailability,
+    eStoreAvailable: item.eStoreAvailable,
+    productTypesAvailable: item.productTypesAvailable,
   }));
 }

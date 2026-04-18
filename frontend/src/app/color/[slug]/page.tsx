@@ -19,6 +19,9 @@ interface ColorProduct {
   collection?: string;
   description?: string;
   inStock: boolean;
+  exteriorAvailability?: string;
+  eStoreAvailable?: boolean;
+  productTypesAvailable?: string;
 }
 
 interface PageProps {
@@ -147,6 +150,9 @@ async function getProductBySlug(slug: string): Promise<ColorProduct | null> {
       collection: product.collection ? String(product.collection) : undefined,
       description: product.description ? String(product.description) : undefined,
       inStock: Boolean(product.inStock),
+      exteriorAvailability: product.exteriorAvailability ? String(product.exteriorAvailability) : undefined,
+      eStoreAvailable: product.eStoreAvailable !== undefined ? Boolean(product.eStoreAvailable) : undefined,
+      productTypesAvailable: product.productTypesAvailable ? String(product.productTypesAvailable) : undefined,
     };
   } catch (error) {
     console.error('Error fetching product by slug:', error);
@@ -192,6 +198,9 @@ async function getAllBrandColors(brand: string): Promise<ColorProduct[]> {
       collection: item.collection ? String(item.collection) : undefined,
       description: item.description ? String(item.description) : undefined,
       inStock: Boolean(item.inStock),
+      exteriorAvailability: item.exteriorAvailability ? String(item.exteriorAvailability) : undefined,
+      eStoreAvailable: item.eStoreAvailable !== undefined ? Boolean(item.eStoreAvailable) : undefined,
+      productTypesAvailable: item.productTypesAvailable ? String(item.productTypesAvailable) : undefined,
     }));
   } catch {
     return [];

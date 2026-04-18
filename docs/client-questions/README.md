@@ -21,11 +21,13 @@ None of these answers are required before Monday. But without them we'd be guess
 
 ## How to answer
 
-Each file ends with a **Decision / Решение** block. Three ways to reply:
+Each file ends with a **Decision / Решение** block. Pick the easiest path for you:
 
-1. Write the answer directly in the file (English or Russian, doesn't matter), save, done.
-2. Paste the answer back to Jason in a message, quoting the question number (e.g. "Q3 — it's the supplier, not a brand").
-3. Forward a single file by email to the client; they reply in the message body or in the file itself.
+1. **Simplest — reply to Jason by message** (WhatsApp, email, etc.). Quote the question number and answer in your own words — e.g. `Q3 — it's the supplier, not a brand`. No GitHub account needed.
+2. **Reply directly here (requires a GitHub account).** Open the file, click the pencil / "Edit" icon, write your answer, click "Propose changes". GitHub will walk you through forking and opening a pull request — Jason merges the PR and the answer is recorded in-repo.
+3. **Forward a file by email.** Jason forwards a single question's file; you reply in the email body or edit the file and send it back.
+
+> Only option 2 needs a GitHub account. Option 1 (message reply) is the fastest and doesn't require you to sign up for anything.
 
 ---
 
@@ -52,8 +54,10 @@ Each file ends with a **Decision / Решение** block. Three ways to reply:
 
 ## Как ответить
 
-В конце каждого файла блок **Decision / Решение**. Три способа ответа:
+В конце каждого файла блок **Decision / Решение**. Выберите самый удобный способ:
 
-1. Написать ответ прямо в файле (на английском или русском — как удобно), сохранить, готово.
-2. Прислать ответ Джейсону в сообщении, указав номер вопроса (например: "Q3 — это поставщик, а не бренд").
-3. Переслать файл по e-mail клиенту; клиент отвечает в теле письма или прямо в файле.
+1. **Самый простой — написать Джейсону в сообщении** (WhatsApp, e-mail — как угодно). Укажите номер вопроса и ответьте своими словами, например: `Q3 — это поставщик, а не бренд`. Учётная запись GitHub не нужна.
+2. **Ответить прямо здесь (требуется GitHub-аккаунт).** Откройте файл, нажмите значок карандаша / "Edit", напишите ответ, нажмите "Propose changes". GitHub проведёт вас через создание форка и pull request — Джейсон смержит PR, и ответ сохранится в репозитории.
+3. **Переслать файл по e-mail.** Джейсон пересылает файл с одним вопросом; вы отвечаете в теле письма или правите файл и отправляете назад.
+
+> Только вариант 2 требует GitHub-аккаунт. Вариант 1 (сообщение) самый быстрый и ничего регистрировать не нужно.

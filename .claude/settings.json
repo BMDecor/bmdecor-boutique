@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(aws lambda list-functions *)",
+      "Bash(aws cloudfront list-distributions *)"
+    ]
+  }
+}

@@ -30,6 +30,9 @@ interface ColorProduct {
   collection?: string;
   description?: string;
   inStock: boolean;
+  exteriorAvailability?: string;
+  eStoreAvailable?: boolean;
+  productTypesAvailable?: string;
 }
 
 interface Props {
@@ -500,13 +503,23 @@ export default function ColorDetailView({ product, brandName, allBrandColors }: 
                 <p className="text-sm text-[#2C2C2C]/50 mt-1">
                   {product.colorCode} · {decodeHtmlEntities(product.collection)}
                 </p>
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex flex-wrap items-center gap-2 mt-3">
                   <span className="text-lg font-semibold text-[#C9A86C]">
                     €{product.priceEur.toFixed(2)}
                   </span>
                   <Badge variant="outline" className="text-xs">
                     {product.finishType.split(' ')[0]}
                   </Badge>
+                  {product.exteriorAvailability &&
+                    product.exteriorAvailability.toLowerCase() === 'available' && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs border-[#C9A86C]/40 bg-[#C9A86C]/10 text-[#8a6e44]"
+                        title="This colour can be formulated in exterior paint lines."
+                      >
+                        Suitable for Exterior
+                      </Badge>
+                    )}
                 </div>
               </CardContent>
             </Card>
