@@ -1,7 +1,7 @@
 name: CI + Deploy
 
 # Runs on every PR (preview deploy) and on every push to main (production deploy).
-# Vercel's Git Integration should be disconnected so only this pipeline deploys.
+# Vercel's Git Integration is disconnected — this pipeline is the only deploy path.
 on:
   pull_request:
   push:
@@ -15,17 +15,16 @@ concurrency:
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  # Populate Vercel deploy metadata from GitHub context, so the Vercel
-  # dashboard still shows commit SHAs / branch names / PR info after the
-  # Git Integration is disconnected.
-  VERCEL_GIT_PROVIDER: github
+  # Explicit git metadata so deployments still show commit info in the Vercel
+  # dashboard even though Vercel's Git Integration is disconnected.
+  VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+  VERCEL_GIT_COMMIT_REF: ${{ github.head_ref || github.ref_name }}
   VERCEL_GIT_REPO_OWNER: ${{ github.repository_owner }}
   VERCEL_GIT_REPO_SLUG: ${{ github.event.repository.name }}
-  VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
-  VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
-  VERCEL_GIT_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
-  VERCEL_GIT_COMMIT_AUTHOR_LOGIN: ${{ github.actor }}
   VERCEL_GIT_COMMIT_AUTHOR_NAME: ${{ github.actor }}
+  VERCEL_GIT_COMMIT_AUTHOR_LOGIN: ${{ github.actor }}
+  VERCEL_GIT_COMMIT_MESSAGE: >-
+    ${{ github.event.head_commit.message || github.event.pull_request.title }}
 
 jobs:
   pipeline:
