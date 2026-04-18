@@ -77,12 +77,9 @@ const frontendStack = new FrontendStack(app, 'BmDecorFrontendStack', {
   hostedZoneId: HOSTED_ZONE_ID,
   hostedZoneName: HOSTED_ZONE_NAME,
   lambdaEnv,
+  certArnUsEast1: certStack.certificateArn,
   crossRegionReferences: true,
   description: `BM Decoracion frontend — ${DOMAIN_NAME}`,
 });
 
 frontendStack.addDependency(certStack);
-
-// Cross-region cert ARN reference. `crossRegionReferences: true` above
-// wires CloudFormation to import this across regions automatically.
-app.node.setContext('certArnUsEast1', certStack.certificateArn);

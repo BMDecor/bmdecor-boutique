@@ -51,6 +51,12 @@ export interface FrontendStackProps extends cdk.StackProps {
    * `.open-next/` lives. Defaults to `../../frontend`.
    */
   readonly openNextDir?: string;
+  /**
+   * ARN of the ACM certificate in us-east-1 (CloudFront requirement).
+   * Pass `certStack.certificateArn` directly — combined with
+   * `crossRegionReferences: true` this resolves across regions.
+   */
+  readonly certArnUsEast1: string;
 }
 
 interface OpenNextOutput {
@@ -77,11 +83,15 @@ export class FrontendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FrontendStackProps) {
     super(scope, id, props);
 
+    // openNextDir points at the Next.js app root (frontend/), not the .open-next
+    // sub-dir. The paths in open-next.output.json (copy.from, bundle) already
+    // include the ".open-next/" prefix, so joining them with the app root
+    // resolves correctly.
     const openNextDir = path.resolve(
       __dirname,
-      props.openNextDir ?? '../../frontend/.open-next'
+      props.openNextDir ?? '../../frontend'
     );
-    const outputFile = path.join(openNextDir, 'open-next.output.json');
+    const outputFile = path.join(openNextDir, '.open-next', 'open-next.output.json');
     if (!existsSync(outputFile)) {
       throw new Error(
         `OpenNext output not found at ${outputFile}. Run "npx open-next build" in frontend/ before cdk deploy.`
@@ -180,20 +190,11 @@ export class FrontendStack extends cdk.Stack {
       zoneName: props.hostedZoneName,
     });
 
-    // CDK supports provisioning ACM certs in us-east-1 from an eu-west-1 stack
-    // via the `Certificate` L2 construct when the stack's env.region is
-    // us-east-1. Simpler: require this stack to be deployed to us-east-1
-    // OR use the DnsValidatedCertificate pattern. We take the route of
-    // declaring a *separate* cross-region cert stack in us-east-1 and
-    // passing the ARN in via context — see bin/infrastructure.ts.
-    const certArn = this.node.tryGetContext('certArnUsEast1') as string | undefined;
-    if (!certArn) {
-      throw new Error(
-        'Expected context value `certArnUsEast1`. ' +
-          'Deploy the CertificateStack first (region us-east-1) or pass --context certArnUsEast1=...'
-      );
-    }
-    const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certArn);
+    // Cross-region cert: CertificateStack lives in us-east-1 (CloudFront
+    // requirement) and passes its cert ARN here via props. Combined with
+    // crossRegionReferences: true on both stacks, CDK handles the actual
+    // cross-region import (via a short-lived SSM Parameter).
+    const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', props.certArnUsEast1);
 
     // ─────────────────────────────────────────────────────
     // CloudFront distribution
